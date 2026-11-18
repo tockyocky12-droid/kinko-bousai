@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>錦江町防災ナビ（試作）</title>
+<title>きんこう防災ナビ（試作）</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1e3a5f">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="錦江町防災ナビ">
+<meta name="apple-mobile-web-app-title" content="きんこう防災ナビ">
 <link rel="stylesheet" href="./lib/leaflet-1.9.4/leaflet.css">
 <style>
 /* 地図が主役の一画面アプリ。文字は端末の文字を使う（Webフォントを読まず、通信量を抑える） */
@@ -100,7 +100,7 @@ table.src th{white-space:nowrap;color:var(--muted);font-weight:400;width:6.5em}
 </head>
 <body>
 <header>
-  <h1>錦江町防災ナビ<span class="tag" id="vtag">試作</span></h1>
+  <h1>きんこう防災ナビ<span class="tag" id="vtag">試作</span></h1>
   <div class="seg" role="group" aria-label="背景の地図">
     <button id="bm-pale" aria-pressed="true">淡色</button><button id="bm-std" aria-pressed="false">標準</button><button id="bm-photo" aria-pressed="false">写真</button>
   </div>
@@ -161,7 +161,7 @@ table.src th{white-space:nowrap;color:var(--muted);font-weight:400;width:6.5em}
 
 <div id="first" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="first-t">
   <div class="mbox">
-    <h2 id="first-t">錦江町防災ナビ（試作）</h2>
+    <h2 id="first-t">きんこう防災ナビ（試作）</h2>
     <p class="strong"><b>町の公式の防災情報ではありません。</b><br>避難情報は、町の発表・防災行政無線・緊急速報メールで確認してください。</p>
     <p>地図には、国の「重ねるハザードマップ」の土砂災害警戒区域などを重ねて表示します。色が塗られていない場所でも、危険がないとは限りません。</p>
     <p>地図の画像は、表示した分だけ通信します。</p>
@@ -173,7 +173,7 @@ table.src th{white-space:nowrap;color:var(--muted);font-weight:400;width:6.5em}
 <script src="./lib/leaflet-1.9.4/leaflet.js"></script>
 <script>
 // アプリの版（sw.js の VER と必ず同じにする。更新のたびに上げる）
-const APP_VER='v1';
+const APP_VER='v2';
 document.getElementById('ver').textContent=APP_VER;
 document.getElementById('vtag').textContent='試作 '+APP_VER;
 

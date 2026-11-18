@@ -1,4 +1,4 @@
-"""錦江町防災ナビの動作確認（Playwright）。
+"""きんこう防災ナビの動作確認（Playwright）。
 
 使い方（リポジトリの1つ上のフォルダで）:
   python3 -m http.server 8765 &   # /kinko-bousai/ として配信される
