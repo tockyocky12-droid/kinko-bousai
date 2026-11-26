@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>【見本】きんこう防災ナビ＋消防水利の層（架空データ）</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#1e3a5f">
+<link rel="icon" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="きんこう防災ナビ">
+<link rel="stylesheet" href="../lib/leaflet-1.9.4/leaflet.css">
+<style>
+/* 地図が主役の一画面アプリ。文字は端末の文字を使う（Webフォントを読まず、通信量を抑える） */
+:root{
+  --bg:#f2f4f7; --panel:#ffffff; --fg:#17212b; --muted:#5b6672; --line:#d6dbe1;
+  --accent:#1e3a5f; --accent-fg:#ffffff; --warn-bg:#fff4d6; --warn-fg:#6b3d00; --warn-line:#f0b429;
+  --f:"BIZ UDGothic","Hiragino Sans","Yu Gothic UI","Yu Gothic","Noto Sans JP",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#11161c; --panel:#1a2129; --fg:#e7ecf1; --muted:#9aa6b2; --line:#2d3742;
+  --accent:#7fb0e6; --accent-fg:#0b1622; --warn-bg:#3a2a07; --warn-fg:#ffd98a; --warn-line:#a87412; color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--f);font-size:15px;display:flex;flex-direction:column}
+button{font:inherit}
+#demoband{background:#b42318;color:#fff;font-size:12.5px;line-height:1.45;padding:6px 12px;text-align:center}
+header{display:flex;align-items:center;gap:8px;padding-block:calc(env(safe-area-inset-top,0px) + 8px) 8px;
+  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));
+  background:var(--panel);border-bottom:1px solid var(--line);z-index:1000}
+header h1{font-size:16px;margin:0;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{display:inline-block;font-size:11px;font-weight:400;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 6px;margin-left:4px;vertical-align:2px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+.seg button{border:0;background:transparent;color:var(--fg);font-size:13px;padding:6px 8px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.ibtn{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--accent);font-weight:700;font-size:16px;cursor:pointer}
+/* 公式の情報ではないことを常に表示する帯 */
+#warn{display:flex;gap:8px;align-items:flex-start;background:var(--warn-bg);color:var(--warn-fg);border-bottom:2px solid var(--warn-line);
+  padding:7px max(12px,env(safe-area-inset-right,0px)) 7px max(12px,env(safe-area-inset-left,0px));font-size:13px;line-height:1.5;z-index:999;cursor:pointer}
+#warn b{font-weight:700}
+#warn .wi{flex:none;font-size:15px;line-height:1.3}
+#maparea{flex:1;min-height:0;position:relative;display:flex;flex-direction:column}
+#map{flex:1;min-height:0;background:#dde3e8}
+.fab{position:absolute;z-index:900;border:0;background:var(--panel);color:var(--accent);box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:pointer}
+#locate{right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px));width:52px;height:52px;border-radius:50%;display:grid;place-items:center}
+#locate.on{background:var(--accent);color:var(--accent-fg)}
+#locate svg{width:26px;height:26px}
+#layerbtn{left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px));height:44px;padding:0 16px;border-radius:22px;font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px}
+#layerbtn svg{width:20px;height:20px}
+#legend{position:absolute;z-index:890;left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;line-height:1.6;box-shadow:0 2px 8px rgba(0,0,0,.15);max-width:calc(100% - 100px);cursor:pointer}
+#legend .lg-t{font-weight:700}
+.sw{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-1px;margin-right:4px;border:1px solid rgba(0,0,0,.25)}
+.lg-row{white-space:nowrap}
+.lg-row span+span{margin-left:8px}
+/* 下からせり上がる画面（重ねる情報・情報と出典） */
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:1100;background:var(--panel);color:var(--fg);border-top:1px solid var(--line);border-radius:14px 14px 0 0;
+  box-shadow:0 -6px 20px rgba(0,0,0,.25);max-height:78vh;display:flex;flex-direction:column}
+.sheet[hidden]{display:none}
+.sh-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px;border-bottom:1px solid var(--line)}
+.sh-head h2{font-size:16px;margin:0}
+.sh-x{border:0;background:transparent;color:var(--muted);font-size:26px;line-height:1;cursor:pointer;padding:0 4px}
+.sh-body{overflow:auto;padding:8px 16px calc(16px + env(safe-area-inset-bottom,0px));-webkit-overflow-scrolling:touch}
+@media (min-width:760px){.sheet{left:auto;right:12px;bottom:12px;top:auto;width:400px;border-radius:14px;border:1px solid var(--line);max-height:calc(100% - 140px)}}
+.ly{display:grid;grid-template-columns:auto 1fr;column-gap:10px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.ly input{width:22px;height:22px;margin:2px 0 0;accent-color:var(--accent)}
+.ly .ln{font-weight:700}
+.ly .ls{grid-column:2;font-size:12px;color:var(--muted);margin-top:2px}
+.ly .ll{grid-column:2;font-size:12px;margin-top:4px;line-height:1.7}
+.ly .ll span{display:inline-block;margin-right:10px;white-space:nowrap}
+.note{font-size:12.5px;color:var(--muted);line-height:1.7;margin:10px 0 0}
+.sec{font-size:13px;font-weight:700;color:var(--accent);margin:16px 0 6px;letter-spacing:.04em}
+.links a{display:block;position:relative;padding:10px 32px 10px 12px;margin:6px 0;border:1px solid var(--line);border-radius:10px;color:var(--fg);text-decoration:none;line-height:1.45}
+.links a small{display:block;color:var(--muted);font-size:12px}
+.links a::after{content:"↗";position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
+table.src{width:100%;border-collapse:collapse;font-size:12.5px;line-height:1.55}
+table.src th,table.src td{border-top:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top}
+table.src th{white-space:nowrap;color:var(--muted);font-weight:400;width:6.5em}
+.plan{margin:0;padding-left:1.2em;font-size:13px;line-height:1.8}
+.pbtn{border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px}
+.ver{margin-top:14px;font-size:12px;color:var(--muted)}
+/* 初回の確認 */
+.modal{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:16px}
+.modal[hidden]{display:none}
+.mbox{background:var(--panel);color:var(--fg);border-radius:14px;max-width:440px;width:100%;padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.35);max-height:90vh;overflow:auto}
+.mbox h2{font-size:17px;margin:0 0 10px}
+.mbox p{font-size:14px;line-height:1.75;margin:0 0 10px}
+.mbox .strong{background:var(--warn-bg);color:var(--warn-fg);border-left:4px solid var(--warn-line);padding:8px 10px;border-radius:6px}
+.mok{display:block;width:100%;margin-top:6px;border:0;border-radius:10px;background:var(--accent);color:var(--accent-fg);font-weight:700;font-size:15px;padding:12px;cursor:pointer}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:1300;background:rgba(20,28,36,.92);color:#fff;
+  padding:9px 16px;border-radius:999px;font-size:13.5px;max-width:calc(100% - 32px);text-align:center}
+#toast[hidden]{display:none}
+.wi-ic{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#fff;font-size:12px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45)}
+.wi-ic.h{background:#d92d20}.wi-ic.t{background:#1570ef;border-radius:5px}
+.ll .wi-ic{width:18px;height:18px;font-size:10px;vertical-align:-4px;margin-right:4px}
+.lg-row .wi-ic{width:16px;height:16px;font-size:9px;vertical-align:-3px;margin-right:3px;border-width:1.5px}
+.wpp{font-size:13.5px;line-height:1.55;min-width:200px}
+.wpp .demo{color:#b42318;font-size:11.5px;font-weight:700}
+.wpp .nm{font-size:15.5px;font-weight:700;margin:2px 0 4px}
+.wpp dl{display:grid;grid-template-columns:auto 1fr;gap:1px 10px;margin:0}
+.wpp dt{color:#5b6672}.wpp dd{margin:0}
+.wpp .care{margin-top:6px;padding:5px 8px;border-radius:6px;background:#fff4d6;color:#6b3d00;font-size:12.5px}
+.wpp a.go{display:block;margin-top:8px;text-align:center;background:#1e3a5f;color:#fff;border-radius:8px;padding:7px;text-decoration:none;font-weight:700}
+.leaflet-container{font-family:var(--f)}
+.leaflet-control-attribution{font-size:10.5px}
+.leaflet-control-attribution.fold{max-width:46vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+@media (max-width:420px){header h1{font-size:15px}.seg button{padding:6px 7px;font-size:12.5px}}
+</style>
+</head>
+<body>
+<div id="demoband">見本：消防水利の層を足したときのイメージです。消火栓・防火水槽の位置・数値は<b>すべて架空</b>です。</div>
+<header>
+  <h1>きんこう防災ナビ<span class="tag" id="vtag">試作</span></h1>
+  <div class="seg" role="group" aria-label="背景の地図">
+    <button id="bm-pale" aria-pressed="true">淡色</button><button id="bm-std" aria-pressed="false">標準</button><button id="bm-photo" aria-pressed="false">写真</button>
+  </div>
+  <button id="infobtn" class="ibtn" aria-label="情報と出典">i</button>
+</header>
+<div id="warn" role="note"><span class="wi" aria-hidden="true">⚠</span><span><b>町の公式の防災情報ではありません。</b>避難情報は、町の発表・防災行政無線で確認してください。</span></div>
+<div id="maparea">
+  <div id="map" aria-label="地図"></div>
+  <div id="legend" hidden></div>
+  <button id="layerbtn" class="fab" aria-label="地図に重ねる情報を選ぶ">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="m2 13 10 5 10-5"/></svg>重ねる
+  </button>
+  <button id="locate" class="fab" aria-label="現在地を表示">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>
+  </button>
+</div>
+
+<section id="sh-layers" class="sheet" hidden aria-label="地図に重ねる情報">
+  <div class="sh-head"><h2>地図に重ねる情報</h2><button class="sh-x" data-close aria-label="閉じる">×</button></div>
+  <div class="sh-body">
+    <div id="lylist"></div>
+    <p class="note">色は「重ねるハザードマップ」（国土交通省・国土地理院）の地図画像をそのまま重ねています。凡例の色はおおよそです。<b>色が塗られていない場所でも、危険がないとは限りません。</b>正確な区域は、町・県のハザードマップで確認してください。</p>
+    <p class="note">拡大率が低いとき（町全体より広く見ているとき）は、通信量を抑えるため表示しません。</p>
+  </div>
+</section>
+
+<section id="sh-info" class="sheet" hidden aria-label="情報と出典">
+  <div class="sh-head"><h2>情報と出典</h2><button class="sh-x" data-close aria-label="閉じる">×</button></div>
+  <div class="sh-body">
+    <p class="note" style="margin-top:4px"><b>このアプリは試作中の非公式のものです。</b>町の公式の防災情報ではありません。避難情報（高齢者等避難・避難指示など）は、町の発表・防災行政無線・緊急速報メールで確認してください。</p>
+    <div class="sec">いまの情報（外部のサイト）</div>
+    <div class="links">
+      <a href="https://www.jma.go.jp/bosai/warning/#area_type=class20s&amp;area_code=4649000" target="_blank" rel="noopener">気象警報・注意報（錦江町）<small>気象庁</small></a>
+      <a href="https://www.jma.go.jp/bosai/risk/#elements:land" target="_blank" rel="noopener">キキクル（土砂災害の危険度分布）<small>気象庁</small></a>
+      <a href="https://www.pref.kagoshima.jp/ah08/infra/kasen-sabo/sabo/jyouhoushisutemu.html" target="_blank" rel="noopener">鹿児島県河川砂防情報システム（雨量・土砂災害危険度）<small>鹿児島県</small></a>
+      <a href="https://www.town.kinko.lg.jp/" target="_blank" rel="noopener">錦江町ホームページ<small>錦江町</small></a>
+      <a href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">ハザードマップポータルサイト（重ねる・わがまちハザードマップ）<small>国土交通省・国土地理院</small></a>
+    </div>
+    <div class="sec">出典と更新日</div>
+    <table class="src">
+      <tr><th>背景の地図</th><td>地理院タイル（淡色地図・標準地図・写真）／国土地理院<br>更新：配信元による（表示のたびに配信元から取得）</td></tr>
+      <tr><th>土砂災害<br>浸水想定</th><td>ハザードマップポータルサイト「重ねるハザードマップ」の地図画像／国土交通省・国土地理院（元の区域は鹿児島県などが指定・公表）<br>更新：配信元による（表示のたびに配信元から取得）</td></tr>
+      <tr><th>消防水利</th><td style="color:#b42318">説明用の架空データ（実際の位置ではありません）</td></tr>
+      <tr><th>確認日</th><td id="chk">2026年11月17日（このアプリで表示を確認した日）</td></tr>
+    </table>
+    <div class="sec">これから載せる予定</div>
+    <ul class="plan">
+      <li>避難所・避難場所</li>
+      <li>警察・消防・病院</li>
+      <li>AED</li>
+      <li>消火栓・防火水槽（公開してよいか確認してから）</li>
+    </ul>
+    <div class="sec">この端末に保存したもの</div>
+    <p class="note" style="margin-top:0">一度見た地図の画像は、圏外でも見られるよう端末に保存しています（上限あり）。</p>
+    <button id="clr" class="pbtn">保存した地図の画像を消す</button>
+    <div class="ver">版 <span id="ver"></span></div>
+  </div>
+</section>
+
+<div id="first" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="first-t">
+  <div class="mbox">
+    <h2 id="first-t">きんこう防災ナビ（試作）</h2>
+    <p class="strong"><b>町の公式の防災情報ではありません。</b><br>避難情報は、町の発表・防災行政無線・緊急速報メールで確認してください。</p>
+    <p>地図には、国の「重ねるハザードマップ」の土砂災害警戒区域などを重ねて表示します。色が塗られていない場所でも、危険がないとは限りません。</p>
+    <p>地図の画像は、表示した分だけ通信します。</p>
+    <button id="first-ok" class="mok">わかりました</button>
+  </div>
+</div>
+<div id="toast" hidden role="status"></div>
+
+<script src="../lib/leaflet-1.9.4/leaflet.js"></script>
+<script>
+// アプリの版（sw.js の VER と必ず同じにする。更新のたびに上げる）
+const APP_VER='v2';
+document.getElementById('ver').textContent=APP_VER;
+document.getElementById('vtag').textContent='試作 '+APP_VER;
+
+// 端末に保存する記録（森林ナビと同じ場所に置かれるので、名前の頭に「bousai:」を付けて分ける）
+const LS={get(k){try{return localStorage.getItem('bousai-demo:'+k)}catch(e){return null}},set(k,v){try{localStorage.setItem('bousai-demo:'+k,v)}catch(e){}}};
+const toastEl=document.getElementById('toast');let tt;
+function toast(t){toastEl.textContent=t;toastEl.hidden=false;clearTimeout(tt);tt=setTimeout(()=>toastEl.hidden=true,3000)}
+
+// ---- 地図 ----
+const CENTER=[31.205,130.80]; // 錦江町の中ほど
+const savedView=(()=>{try{const v=JSON.parse(LS.get('view')||'null');return v&&isFinite(v.lat)&&isFinite(v.lng)&&isFinite(v.z)?v:null}catch(e){return null}})();
+const map=L.map('map',{zoomControl:true,preferCanvas:true,maxZoom:18,minZoom:8}).setView(savedView?[savedView.lat,savedView.lng]:CENTER,savedView?savedView.z:12);
+let svT;map.on('moveend',()=>{clearTimeout(svT);svT=setTimeout(()=>{const c=map.getCenter();LS.set('view',JSON.stringify({lat:+c.lat.toFixed(6),lng:+c.lng.toFixed(6),z:map.getZoom()}))},500)});
+{const a=map.attributionControl;a.setPrefix(false);const el=a.getContainer();el.classList.add('fold');el.title='押すと出典をすべて表示';el.addEventListener('click',e=>{if(e.target.tagName!=='A')el.classList.toggle('fold')})}
+const gsiAttr='<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>';
+
+// 地図の画像が読めないとき（圏外で、保存していない拡大レベルなど）は、1〜4段階粗い画像を引き伸ばして出す（森林ナビと同じ仕組み）
+const FallbackTileLayer=L.TileLayer.extend({
+  createTile(coords,done){
+    const wrap=document.createElement('div');wrap.style.overflow='hidden';
+    const img=document.createElement('img');img.alt='';img.setAttribute('role','presentation');img.draggable=false;
+    img.style.cssText='position:absolute;left:0;top:0;width:100%;height:100%;max-width:none;user-select:none';
+    img.crossOrigin='anonymous'; // 中身の見える形で保存する（見えない形＝opaqueだとChromeが1件約7MBと数える）
+    wrap.appendChild(img);
+    const url=(z,x,y)=>this._url.replace('{z}',z).replace('{x}',x).replace('{y}',y);
+    let dz=0;
+    const load=()=>{
+      if(!dz){img.src=url(coords.z,coords.x,coords.y);return}
+      const n=1<<dz,px=coords.x>>dz,py=coords.y>>dz,sz=this.getTileSize();
+      img.style.width=sz.x*n+'px';img.style.height=sz.y*n+'px';
+      img.style.left=-(coords.x-px*n)*sz.x+'px';img.style.top=-(coords.y-py*n)*sz.y+'px';
+      img.src=url(coords.z-dz,px,py);
+    };
+    img.onload=()=>done(null,wrap);
+    img.onerror=()=>{if(dz<4&&coords.z-dz>10){dz++;load()}else done(new Error('tile'),wrap)};
+    load();return wrap;
+  }
+});
+const BASES={
+  pale:new FallbackTileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',{maxZoom:18,attribution:gsiAttr,updateWhenZooming:false,keepBuffer:1}),
+  std:new FallbackTileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',{maxZoom:18,attribution:gsiAttr,updateWhenZooming:false,keepBuffer:1}),
+  photo:new FallbackTileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',{maxZoom:18,attribution:gsiAttr,updateWhenZooming:false,keepBuffer:1})
+};
+let baseKey=BASES[LS.get('base')]?LS.get('base'):'pale';
+function setBase(k){
+  Object.entries(BASES).forEach(([key,l])=>{if(key!==k&&map.hasLayer(l))l.remove()});
+  if(!map.hasLayer(BASES[k]))BASES[k].addTo(map);
+  baseKey=k;LS.set('base',k);
+  for(const key of Object.keys(BASES))document.getElementById('bm-'+key).setAttribute('aria-pressed',key===k);
+}
+for(const key of Object.keys(BASES))document.getElementById('bm-'+key).onclick=()=>setBase(key);
+setBase(baseKey);
+
+// ---- 重ねる情報（重ねるハザードマップの地図画像。自前ではデータを持たない） ----
+const HZ_HOST='https://disaportaldata.gsi.go.jp/raster/';
+const hzAttr='<a href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">ハザードマップポータルサイト</a>';
+const DEPTH=[['#f7f5a9','0.5m未満'],['#ffd8c0','0.5〜3m'],['#ffb7b7','3〜5m'],['#ff9191','5〜10m'],['#f285c9','10〜20m'],['#dc7adc','20m以上']];
+const HZ=[
+  {id:'dosha',name:'土砂災害警戒区域・特別警戒区域',sub:'土石流・急傾斜地の崩壊（がけ崩れ）・地すべり',def:true,
+    dirs:['05_dosekiryukeikaikuiki','05_kyukeishakeikaikuiki','05_jisuberikeikaikuiki'],
+    legend:[['#f5d33f','警戒区域（イエローゾーン）'],['#e0453a','特別警戒区域（レッドゾーン）']]},
+  {id:'flood',name:'洪水浸水想定区域（想定最大規模）',sub:'川があふれたときに浸かる深さの想定',dirs:['01_flood_l2_shinsuishin_data'],legend:DEPTH},
+  {id:'tsunami',name:'津波浸水想定',sub:'最大クラスの津波で浸かる深さの想定',dirs:['04_tsunami_newlegend_data'],legend:DEPTH},
+  {id:'takashio',name:'高潮浸水想定区域',sub:'想定最大規模の高潮で浸かる深さの想定',dirs:['03_hightide_l2_shinsuishin_data'],legend:DEPTH}
+];
+const hzPane=map.createPane('hz');hzPane.style.zIndex=350;hzPane.style.opacity=.75;hzPane.style.pointerEvents='none';
+// 配信元が「中身の見える形（CORS）」に対応していないと分かったときは、形を変えて読む（その場合は端末に保存しない）
+let hzCors=true;
+const hzLayers={}; // id → L.layerGroup
+function makeHz(h){
+  const g=L.layerGroup();
+  h.dirs.forEach((d,i)=>g.addLayer(L.tileLayer(HZ_HOST+d+'/{z}/{x}/{y}.png',{pane:'hz',minZoom:10,maxNativeZoom:17,maxZoom:18,
+    crossOrigin:hzCors?'anonymous':undefined,attribution:i===0?hzAttr:'',updateWhenZooming:false,keepBuffer:1})));
+  return g;
+}
+const hzOn=(()=>{try{const s=JSON.parse(LS.get('layers')||'null');if(Array.isArray(s))return new Set(s)}catch(e){}return new Set(HZ.filter(h=>h.def).map(h=>h.id))})();
+function applyHz(){
+  HZ.forEach(h=>{
+    const on=hzOn.has(h.id);
+    if(on&&!hzLayers[h.id])hzLayers[h.id]=makeHz(h);
+    if(hzLayers[h.id]){if(on&&!map.hasLayer(hzLayers[h.id]))hzLayers[h.id].addTo(map);if(!on&&map.hasLayer(hzLayers[h.id]))hzLayers[h.id].remove()}
+  });
+  LS.set('layers',JSON.stringify([...hzOn]));
+  drawLegend();
+}
+const sw=(c)=>`<i class="sw" style="background:${c}"></i>`;
+var drawLegend=function(){
+  const el=document.getElementById('legend');const act=HZ.filter(h=>hzOn.has(h.id));
+  if(!act.length){el.hidden=true;return}
+  el.innerHTML=act.map(h=>h.id==='dosha'
+    ?`<div class="lg-t">土砂災害</div><div class="lg-row"><span>${sw(h.legend[0][0])}警戒</span><span>${sw(h.legend[1][0])}特別警戒</span></div>`
+    :`<div class="lg-t">${h.name.replace(/（.*）/,'').replace('区域','')}</div>`).join('')
+    +(map.getZoom()<10?'<div class="note" style="margin:2px 0 0">拡大すると表示します</div>':'');
+  el.hidden=false;
+};
+map.on('zoomend',()=>drawLegend());
+// 重ねる情報の一覧
+{const box=document.getElementById('lylist');
+  HZ.forEach(h=>{const lab=document.createElement('label');lab.className='ly';
+    lab.innerHTML=`<input type="checkbox" data-id="${h.id}"><span class="ln">${h.name}</span><span class="ls">${h.sub}</span><span class="ll">${h.legend.map(([c,t])=>`<span>${sw(c)}${t}</span>`).join('')}</span>`;
+    const cb=lab.querySelector('input');cb.checked=hzOn.has(h.id);
+    cb.onchange=()=>{cb.checked?hzOn.add(h.id):hzOn.delete(h.id);applyHz()};
+    box.append(lab)})}
+applyHz();
+// ---- 消防水利の層（見本：架空データ） ----
+const DEMO=[
+  {id:1, kind:'消火栓',  name:'消火栓 第101号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2448, lng:130.7838, dia:75},
+  {id:2, kind:'消火栓',  name:'消火栓 第102号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2426, lng:130.7861, dia:75},
+  {id:3, kind:'消火栓',  name:'消火栓 第103号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2412, lng:130.7832, dia:100},
+  {id:4, kind:'消火栓',  name:'消火栓 第104号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2459, lng:130.7869, dia:75},
+  {id:5, kind:'消火栓',  name:'消火栓 第105号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2437, lng:130.7812, dia:150},
+  {id:6, kind:'消火栓',  name:'消火栓 第106号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2401, lng:130.7858, dia:75},
+  {id:7, kind:'防火水槽', name:'防火水槽 第201号（架空）', addr:'錦江町城元 ○○公民館付近', lat:31.2467, lng:130.7850, cap:40, note:'地下式'},
+  {id:8, kind:'防火水槽', name:'防火水槽 第202号（架空）', addr:'錦江町城元 ○○公園付近',   lat:31.2419, lng:130.7880, cap:100, note:'地下式・耐震性'},
+  {id:9, kind:'防火水槽', name:'防火水槽 第203号（架空）', addr:'錦江町城元 ○○付近',       lat:31.2443, lng:130.7795, cap:40, note:'地上式'},
+  {id:10,kind:'防火水槽', name:'防火水槽 第204号（架空）', addr:'錦江町城元 ○○付近',       lat:31.2395, lng:130.7820, cap:60, note:'地下式'}
+];
+const WATER={id:'suiri',name:'消防水利（消火栓・防火水槽）',sub:'見本のため架空の位置です。拡大すると表示します'};
+const waterLayer=L.layerGroup();let waterOn=LS.get('water')!=='0';
+DEMO.forEach(d=>{
+  const h=d.kind==='消火栓';
+  const m=L.marker([d.lat,d.lng],{title:d.name,icon:L.divIcon({className:'',html:`<span class="wi-ic ${h?'h':'t'}">${h?'栓':'水'}</span>`,iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-10]})});
+  m.bindPopup(`<div class="wpp"><div class="demo">見本・架空データ</div><div class="nm">${d.name}</div><dl>
+    <dt>種別</dt><dd>${d.kind}</dd>${h?`<dt>口径</dt><dd>${d.dia} mm</dd>`:`<dt>容量</dt><dd>${d.cap} ㎥</dd>`}
+    <dt>所在地</dt><dd>${d.addr}</dd>${d.note?`<dt>備考</dt><dd>${d.note}</dd>`:''}</dl>
+    <div class="care">${h?'消火栓のまわりは駐車しないでください。消防の活動以外で使わないでください。':'防火水槽のまわりは駐車しないでください。ふたを開けたり、物を置いたりしないでください。'}</div>
+    <a class="go" href="suiri.html?v=19" target="_blank" rel="noopener">火点からの道順を見る（消防水利マップ）</a></div>`,{autoPanPaddingTopLeft:[56,16]});
+  waterLayer.addLayer(m);
+});
+function applyWater(){
+  const show=waterOn&&map.getZoom()>=14;
+  if(show&&!map.hasLayer(waterLayer))waterLayer.addTo(map);
+  if(!show&&map.hasLayer(waterLayer))waterLayer.remove();
+  LS.set('water',waterOn?'1':'0');drawLegend();
+}
+map.on('zoomend',applyWater);
+{const box=document.getElementById('lylist'),lab=document.createElement('label');lab.className='ly';
+  lab.innerHTML=`<input type="checkbox" data-id="suiri"><span class="ln">${WATER.name}</span><span class="ls">${WATER.sub}</span><span class="ll"><span><i class="wi-ic h">栓</i>消火栓</span><span><i class="wi-ic t">水</i>防火水槽</span></span>`;
+  const cb=lab.querySelector('input');cb.checked=waterOn;cb.onchange=()=>{waterOn=cb.checked;applyWater()};box.append(lab)}
+// 凡例に消防水利を足す
+const drawLegend0=drawLegend;
+drawLegend=function(){drawLegend0();const el=document.getElementById('legend');if(!waterOn)return;
+  el.insertAdjacentHTML('beforeend',`<div class="lg-t">消防水利</div><div class="lg-row"><span><i class="wi-ic h">栓</i>消火栓</span><span><i class="wi-ic t">水</i>防火水槽</span></div>`+(map.getZoom()<14?'<div class="note" style="margin:2px 0 0">拡大すると表示します</div>':''));el.hidden=false};
+// 見本なので、最初は役場のまわりを表示する
+if(!LS.get('view'))map.fitBounds(L.latLngBounds(DEMO.map(d=>[d.lat,d.lng])),{padding:[40,40]});
+applyWater();
+// 配信元が中身の見える形で読めるかを1回だけ確かめる（読めなければ、形を変えて読み直す）
+(async()=>{
+  if(!navigator.onLine||!window.fetch)return;
+  const z=14,n=1<<z,x=Math.floor((CENTER[1]+180)/360*n),r=CENTER[0]*Math.PI/180,y=Math.floor((1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n);
+  try{await fetch(`${HZ_HOST}${HZ[0].dirs[0]}/${z}/${x}/${y}.png`,{mode:'cors',credentials:'omit'})}
+  catch(e){if(!navigator.onLine)return;hzCors=false;
+    for(const id of Object.keys(hzLayers)){const was=map.hasLayer(hzLayers[id]);if(was)hzLayers[id].remove();delete hzLayers[id]}
+    applyHz()}
+})();
+
+// ---- 画面の開け閉め ----
+function openSheet(id){document.querySelectorAll('.sheet').forEach(s=>s.hidden=s.id!==id)}
+function closeSheets(){document.querySelectorAll('.sheet').forEach(s=>s.hidden=true)}
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeSheets);
+document.getElementById('layerbtn').onclick=()=>{const s=document.getElementById('sh-layers');s.hidden?openSheet('sh-layers'):closeSheets()};
+document.getElementById('legend').onclick=()=>openSheet('sh-layers');
+document.getElementById('infobtn').onclick=()=>{const s=document.getElementById('sh-info');s.hidden?openSheet('sh-info'):closeSheets()};
+document.getElementById('warn').onclick=()=>openSheet('sh-info');
+map.on('click',closeSheets);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheets()});
+
+// 初回の確認（内容を変えたら AGREE の番号を上げて、もう一度見てもらう）
+const AGREE='1';
+if(LS.get('agree')!==AGREE){const m=document.getElementById('first');m.hidden=false;const ok=document.getElementById('first-ok');ok.focus();
+  ok.onclick=()=>{LS.set('agree',AGREE);m.hidden=true}}
+
+// ---- 現在地 ----
+let watchId=null,me=null,acc=null,first=true;const lbtn=document.getElementById('locate');
+lbtn.onclick=()=>{
+  if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;lbtn.classList.remove('on');me&&me.remove();acc&&acc.remove();me=acc=null;return}
+  if(!navigator.geolocation){toast('この端末では現在地が使えません');return}
+  lbtn.classList.add('on');first=true;toast('現在地を取得しています…');
+  watchId=navigator.geolocation.watchPosition(pos=>{
+    const ll=[pos.coords.latitude,pos.coords.longitude],r=pos.coords.accuracy;
+    if(!me){acc=L.circle(ll,{radius:r,color:'#2563eb',weight:1,fillOpacity:.12,interactive:false}).addTo(map);
+      me=L.circleMarker(ll,{radius:8,color:'#fff',weight:3,fillColor:'#2563eb',fillOpacity:1,interactive:false}).addTo(map)}
+    else{me.setLatLng(ll);acc.setLatLng(ll).setRadius(r)}
+    if(first){map.setView(ll,Math.max(map.getZoom(),16));first=false;toast(`現在地（誤差 約${Math.round(r)}m）`)}
+  },err=>{toast(err.code===1?'位置情報の利用が許可されていません。ブラウザの設定で許可してください':'現在地を取得できませんでした');
+    lbtn.classList.remove('on');watchId=null},{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+};
+
+// ---- 保存した地図の画像を消す ----
+document.getElementById('clr').onclick=async()=>{
+  if(!('caches' in window))return;
+  let n=0;for(const k of await caches.keys())if(k.startsWith('bousai-tiles-')||k.startsWith('bousai-hz-')){await caches.delete(k);n++}
+  toast(n?'保存した地図の画像を消しました':'保存した地図の画像はありません');
+};
+
+// ---- オフライン対応 ----
+// 見本のページなので、オフライン用の仕組みは登録しない
+</script>
+</body>
+</html>
