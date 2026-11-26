@@ -67,6 +67,10 @@ tbody tr{cursor:pointer}
 #near .steps{display:block;margin:4px 0 2px;font-size:13px;color:#9a3412}
 #near small{display:block}
 .calc{display:inline-block;white-space:nowrap;background:rgba(23,33,43,.85);color:#fff;font-size:12px;padding:2px 8px;border-radius:999px}
+.labw{position:relative;width:0;height:0}
+.labw .rank{position:absolute;left:10px;top:-12px;cursor:pointer}
+.labw .lead{display:none;position:absolute;left:0;top:0;height:1.5px;background:#374151;transform-origin:0 50%;pointer-events:none;opacity:.7}
+.routing .leaflet-tooltip.num{display:none}
 .leaflet-container{font-family:var(--f)}
 .leaflet-popup-content{margin:10px 12px;font-size:13.5px;line-height:1.55;min-width:190px}
 .pp-h{font-size:15.5px;font-weight:700;margin-bottom:4px}
@@ -83,7 +87,7 @@ tbody tr{cursor:pointer}
 <small>実際の消火栓・防火水槽の位置ではありません。きんこう防災ナビには載せていません。</small></div>
 <header>
   <h1>消火栓・防火水槽の表示イメージ（きんこう防災ナビ）</h1>
-  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 13）</b></p>
+  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 14）</b></p>
   <p><a href="#fire">▼ 出動メールを貼り付けて、近い水利と距離を出す</a></p>
 </header>
 <div id="mapbox"><div id="map" aria-label="地図"></div><div id="maphint">地図のどこを押しても、そこに火点🔥を置きます</div></div>
@@ -359,6 +363,62 @@ function arrowsAlong(pts,every){
   }
   return out;
 }
+// ---- 札（栓1・水2 など）を、道順の線や印に重ならない所に置く ----
+const labelLayer=L.layerGroup().addTo(map);let curLabs=[];
+function makeLabels(labs){
+  labelLayer.clearLayers();
+  curLabs=labs.sort((a,b)=>a.prio-b.prio).map(l=>{
+    const m=L.marker(l.ll,{zIndexOffset:700,icon:L.divIcon({className:'labm',html:`<div class="labw">${l.html}</div>`,iconSize:[0,0],iconAnchor:[0,0]})});
+    m.on('click',l.onClick).addTo(labelLayer);
+    return {...l,m};
+  });
+  placeLabels();
+}
+function segHitsRect(a,b,r){
+  const inR=p=>p.x>=r.x0&&p.x<=r.x1&&p.y>=r.y0&&p.y<=r.y1;
+  if(inR(a)||inR(b))return true;
+  const cr=(p,q,u,v)=>{const d=(q.x-p.x)*(v.y-u.y)-(q.y-p.y)*(v.x-u.x);if(!d)return false;
+    const t=((u.x-p.x)*(v.y-u.y)-(u.y-p.y)*(v.x-u.x))/d,s=((u.x-p.x)*(q.y-p.y)-(u.y-p.y)*(q.x-p.x))/d;return t>=0&&t<=1&&s>=0&&s<=1};
+  const c=[{x:r.x0,y:r.y0},{x:r.x1,y:r.y0},{x:r.x1,y:r.y1},{x:r.x0,y:r.y1}];
+  for(let i=0;i<4;i++)if(cr(a,b,c[i],c[(i+1)%4]))return true;
+  return false;
+}
+function placeLabels(){
+  if(!curLabs.length)return;
+  // 障害物：道順の線（太い線・灰色の線）、火点、水利の印
+  const segs=[];
+  fireLines.eachLayer(l=>{if(l instanceof L.Polyline){const pts=l.getLatLngs().map(x=>map.latLngToContainerPoint(x));for(let i=0;i<pts.length-1;i++)segs.push([pts[i],pts[i+1]])}});
+  const boxes=[];
+  const boxAt=(ll,r)=>{const p=map.latLngToContainerPoint(ll);return {x0:p.x-r,y0:p.y-r,x1:p.x+r,y1:p.y+r}};
+  DEMO.forEach(d=>boxes.push(boxAt([d.lat,d.lng],14)));
+  if(fire)boxes.push(boxAt(fire.getLatLng(),16));
+  const hit=(r)=>{let n=0;for(const b of boxes)if(r.x0<b.x1&&r.x1>b.x0&&r.y0<b.y1&&r.y1>b.y0)n+=3;
+    for(const [a,b] of segs)if(segHitsRect(a,b,r))n++;return n};
+  const pad=3;
+  curLabs.forEach(l=>{
+    const el=l.m.getElement();if(!el)return;const span=el.querySelector('.rank');if(!span)return;
+    const w=span.offsetWidth,h=span.offsetHeight,P=map.latLngToContainerPoint(l.ll);
+    let best=null;
+    for(const dist of [18,34,56,84]){
+      for(const [dx,dy] of [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[-1,1],[0,1],[1,1]]){
+        // 印の中心から dist だけ離れた所に、札の角や辺を合わせる
+        const ox=dx>0?dist:dx<0?-dist-w:-w/2, oy=dy>0?dist:dy<0?-dist-h:-h/2;
+        const r={x0:P.x+ox-pad,y0:P.y+oy-pad,x1:P.x+ox+w+pad,y1:P.y+oy+h+pad};
+        const sc=hit(r)*100+dist; // 重なりが一番少なく、近い所
+        if(!best||sc<best.sc)best={sc,ox,oy,r};
+      }
+      if(best&&best.sc<100)break;
+    }
+    span.style.left=best.ox+'px';span.style.top=best.oy+'px';
+    boxes.push({x0:best.r.x0,y0:best.r.y0,x1:best.r.x1,y1:best.r.y1}); // 札どうしも重ねない
+    // 印から離れた札には、細い引き出し線を付ける
+    const cx=best.ox+w/2,cy=best.oy+h/2,len=Math.hypot(cx,cy);
+    let ld=el.querySelector('.lead');if(!ld){ld=document.createElement('i');ld.className='lead';el.querySelector('.labw').prepend(ld)}
+    if(len>Math.max(w,h)/2+22){const ang=Math.atan2(cy,cx);ld.style.display='block';ld.style.width=(len-Math.max(w,h)/2)+'px';ld.style.transform=`rotate(${ang}rad)`}
+    else ld.style.display='none';
+  });
+}
+map.on('zoomend',()=>placeLabels());
 function routePts(r,ll){return r.path?[...r.legFire,...r.path,...r.legSui.slice(1)]:[[ll.lat,ll.lng],[r.d.lat,r.d.lng]]}
 function drawOne(r,ll,col,dark){
   const all=routePts(r,ll);
@@ -375,20 +435,21 @@ function drawOne(r,ll,col,dark){
   // 矢印は水利から火点へ（水が流れる向き・ホースを延ばす向き）
   arrowsAlong([...all].reverse(),45).forEach(a=>L.marker(a.ll,{interactive:false,icon:L.divIcon({className:'',
     html:`<span class="arw" style="transform:rotate(${a.ang}deg);text-shadow:0 0 2px ${dark},0 0 2px ${dark}">➤</span>`,iconSize:[16,16],iconAnchor:[8,8]})}).addTo(fireLines));
-  L.marker([r.d.lat,r.d.lng],{interactive:false,zIndexOffset:600,icon:L.divIcon({className:'',
-    html:`<span class="goal" style="background:${col}">${r.d.kind} ${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}</span>`,iconSize:[0,0],iconAnchor:[-14,-12]})}).addTo(fireLines);
   return all;
 }
 function drawRoutes(){
   if(!shown)return;
   const {ll,roadOK,res}=shown;fireLines.clearLayers();
-  // ほかの候補は細い灰色の線と番号
+  // ほかの候補は細い灰色の線
+  const labs=[];
   ['消火栓','防火水槽'].forEach(k=>{const K=KIND[k],arr=shown[K.key];
     arr.forEach((r,i)=>{
-      if(i!==shown[K.sel])L.polyline(routePts(r,ll),{color:'#6b7280',weight:3,opacity:.4,interactive:false}).addTo(fireLines);
-      L.marker([r.d.lat,r.d.lng],{zIndexOffset:500,icon:L.divIcon({className:'',
-        html:`<span class="rank${i===shown[K.sel]?' on':''}" style="${i===shown[K.sel]?'background:'+K.col:''}">${K.mark}${i+1}</span>`,iconSize:[30,24],iconAnchor:[-6,30]})})
-        .on('click',()=>{shown[K.sel]=i;drawRoutes()}).addTo(fireLines);
+      const on=i===shown[K.sel];
+      if(!on)L.polyline(routePts(r,ll),{color:'#6b7280',weight:3,opacity:.4,interactive:false}).addTo(fireLines);
+      // 札：選んだものは「栓1 道沿い 62m」、ほかは「栓2」だけ
+      labs.push({ll:L.latLng(r.d.lat,r.d.lng),prio:on?0:1,onClick:()=>{shown[K.sel]=i;drawRoutes()},
+        html:on?`<span class="rank on" style="background:${K.col}">${K.mark}${i+1}　${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}</span>`
+               :`<span class="rank">${K.mark}${i+1}</span>`});
     })});
   // 選んだ道順：防火水槽を先に、消火栓をその上に描く（重なる道では消火栓の赤が見える）
   const pts=[];
@@ -396,6 +457,8 @@ function drawRoutes(){
   if(t)pts.push(...drawOne(t,ll,KIND['防火水槽'].col,KIND['防火水槽'].dark));
   if(h)pts.push(...drawOne(h,ll,KIND['消火栓'].col,KIND['消火栓'].dark));
   if(pts.length){const rb=L.latLngBounds(pts);if(!map.getBounds().pad(-0.05).contains(rb))map.fitBounds(rb,{padding:[50,50],maxZoom:18})}
+  makeLabels(labs);
+  map.getContainer().classList.add('routing'); // 道順を出している間は、水利の通し番号（1〜10）を隠す
   // 一覧
   const near=document.getElementById('near');
   const li=(r,i,k)=>{const K=KIND[k],d=r.d,h=k==='消火栓',L0=r.road??r.m,on=i===shown[K.sel];
@@ -411,7 +474,7 @@ function drawRoutes(){
     :'<p class="note"><b>道の情報を読み込めなかったため、直線距離</b>を表示しています。実際は道や建物を回るので、ホースはこれより長く必要です。</p>');
   near.querySelectorAll('li').forEach(el=>el.onclick=()=>{shown[KIND[el.dataset.k].sel]=+el.dataset.i;drawRoutes();document.getElementById('mapbox').scrollIntoView({behavior:'smooth',block:'start'})});
 }
-document.getElementById('clear').onclick=()=>{if(fire)fire.remove();fire=null;shown=null;fireLines.clearLayers();
+document.getElementById('clear').onclick=()=>{if(fire)fire.remove();fire=null;shown=null;fireLines.clearLayers();labelLayer.clearLayers();curLabs=[];map.getContainer().classList.remove('routing');
   document.getElementById('near').innerHTML='<p class="note">火点を置くと、近い順に5か所と、道沿いの距離を表示します。</p>'};
 document.getElementById('here').onclick=()=>{
   if(!navigator.geolocation){alert('この端末では現在地が使えません');return}
