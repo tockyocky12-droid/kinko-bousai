@@ -70,10 +70,10 @@ tbody tr{cursor:pointer}
 <small>実際の消火栓・防火水槽の位置ではありません。きんこう防災ナビには載せていません。</small></div>
 <header>
   <h1>消火栓・防火水槽の表示イメージ（きんこう防災ナビ）</h1>
-  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 5）</b></p>
+  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 6）</b></p>
   <p><a href="#fire">▼ 出動メールを貼り付けて、近い水利と距離を出す</a></p>
 </header>
-<div id="mapbox"><div id="map" aria-label="地図"></div><div id="maphint">地図を押すと、そこに火点🔥を置きます</div></div>
+<div id="mapbox"><div id="map" aria-label="地図"></div><div id="maphint">地図のどこを押しても、そこに火点🔥を置きます</div></div>
 <div class="filters">
   <label><input type="checkbox" id="f-h" checked><span class="ic h">栓</span>消火栓</label>
   <label><input type="checkbox" id="f-t" checked><span class="ic t">水</span>防火水槽</label>
@@ -235,7 +235,7 @@ function removeVirtual(v){v.adj.forEach(([n])=>{n.adj=n.adj.filter(([m])=>m!==v)
 async function roadRoutes(ll,cands){
   // 火点と候補の水利を囲む範囲（少し広めに）のタイルを読む
   const pts=[ll,...cands.map(c=>L.latLng(c.d.lat,c.d.lng))];
-  const b=L.latLngBounds(pts).pad(0.4);
+  const b=L.latLngBounds(pts).pad(0.4).extend(L.latLngBounds([ll.lat-0.004,ll.lng-0.0045],[ll.lat+0.004,ll.lng+0.0045]));
   const x0=t2x(b.getWest(),RD_Z),x1=t2x(b.getEast(),RD_Z),y0=t2y(b.getNorth(),RD_Z),y1=t2y(b.getSouth(),RD_Z);
   if((x1-x0+1)*(y1-y0+1)>64)throw new Error('範囲が広すぎます');
   const jobs=[];for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)jobs.push(rdTile(x,y));
@@ -249,12 +249,17 @@ async function roadRoutes(ll,cands){
     if(road===undefined)return {...c,road:null};
     const path=[];for(let n=v;n;n=prev.get(n))path.push([n.lat,n.lng]);
     path.reverse();
-    return {...c,road:sf.off+road+s.off,path:[[ll.lat,ll.lng],...path,[c.d.lat,c.d.lng]]};
+    // 道の上の部分と、道から外れた部分（火点〜道、道〜水利）を分けて返す
+    return {...c,road:sf.off+road+s.off,onRoad:road,offFire:sf.off,offSui:s.off,path,
+      legFire:[[ll.lat,ll.lng],path[0]],legSui:[path[path.length-1],[c.d.lat,c.d.lng]]};
   });
   vs.forEach(({v})=>removeVirtual(v));removeVirtual(vf);
   return out;
 }
 
+// 火点が道から遠い（山の中など）ときの注意
+function farNote(res){const r=res.find(x=>x.offFire!=null);if(!r||r.offFire<100)return '';
+  return `<p class="note" style="color:#b42318"><b>火点から一番近い道まで約${fmt(r.offFire)}あります。</b>山林・畑の中の火点です。道から先は地形や草木で、直線よりかなり長くなることがあります。</p>`}
 let fireSeq=0;
 async function setFire(ll){
   const seq=++fireSeq;
@@ -276,16 +281,20 @@ async function setFire(ll){
   const list=(roadOK?res.filter(r=>r.road!==null).sort((a,b)=>val(a)-val(b)):res).slice(0,5);
   list.forEach((r,i)=>{
     const col=r.d.kind==='消火栓'?'#d92d20':'#1570ef';
-    const line=r.path?L.polyline(r.path,{color:col,weight:i===0?5:3,opacity:i===0?.95:.75,dashArray:i===0?null:'8 6'})
-      :L.polyline([ll,[r.d.lat,r.d.lng]],{color:col,weight:2,opacity:.7,dashArray:'2 6'});
-    line.addTo(fireLines).bindTooltip(r.road!=null?'道 '+fmt(r.road):'直線 '+fmt(r.m),{permanent:i<3,direction:'center',className:'dist'});
+    let line;
+    if(r.path){
+      // 道から外れた部分（家の敷地・畑・山の中など）は、細い点線で描く
+      [r.legFire,r.legSui].forEach(seg=>L.polyline(seg,{color:col,weight:2.5,opacity:.9,dashArray:'1 6',lineCap:'round'}).addTo(fireLines));
+      line=L.polyline(r.path,{color:col,weight:i===0?5:3,opacity:i===0?.95:.75,dashArray:i===0?null:'8 6'});
+    }else line=L.polyline([ll,[r.d.lat,r.d.lng]],{color:col,weight:2,opacity:.7,dashArray:'2 6'});
+    line.addTo(fireLines).bindTooltip(r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m),{permanent:i<3,direction:'center',className:'dist'});
     if(i===0)line.bringToFront();
   });
   const li=r=>{const d=r.d,h=d.kind==='消火栓',L0=r.road??r.m;
     return `<li data-id="${d.id}"><b>${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}</b>　<span class="ic ${h?'h':'t'}" style="width:18px;height:18px;font-size:10px">${h?'栓':'水'}</span> ${esc(d.name)}　${h?'口径'+d.dia+'mm':'容量'+d.cap+'㎥'}
-      <br><small class="note">${r.road!=null?`直線では ${fmt(r.m)}・`:''}ホース（1本20m）約${Math.ceil(L0/20)}本分</small></li>`};
+      <br><small class="note">${r.road!=null?`内訳：火点〜道 ${fmt(r.offFire)}＋道 ${fmt(r.onRoad)}＋道〜水利 ${fmt(r.offSui)}（直線では ${fmt(r.m)}）<br>`:''}ホース（1本20m）約${Math.ceil(L0/20)}本分</small></li>`};
   near.innerHTML=(list.length?`<ol>${list.map(li).join('')}</ol>`:'')+(roadOK
-    ?'<p class="note">距離は、国土地理院の道路中心線に沿って計算した<b>道沿いの距離</b>（火点と水利から道までは直線）です。通れない道、私道・農道、建物の間を通す近道などは考えていないので、目安として使ってください。</p>'
+    ?(farNote(res))+'<p class="note">距離は、国土地理院の道路中心線に沿って計算した<b>道沿いの距離</b>です。火点が家の敷地・畑・山の中にあるときは、<b>いちばん近い道から火点までを直線（細い点線）</b>で足しています。通れない道、私道・農道、建物の間を通す近道などは考えていないので、目安として使ってください。</p>'
     :'<p class="note"><b>道の情報を読み込めなかったため、直線距離</b>を表示しています。実際は道や建物を回るので、ホースはこれより長く必要です。</p>');
   near.querySelectorAll('li').forEach(el=>el.onclick=()=>{const d=DEMO.find(x=>x.id===+el.dataset.id);marks[d.id].openPopup()});
 }
