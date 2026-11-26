@@ -102,6 +102,7 @@ tbody tr{cursor:pointer}
 .pp dd{margin:0}
 .num{background:transparent;border:0;box-shadow:none;font-size:11px;font-weight:700;color:#17212b;padding:0}
 .num::before{display:none}
+.btn.sm{font-size:13px;padding:4px 10px;min-height:0}
 </style>
 </head>
 <body>
@@ -110,7 +111,7 @@ tbody tr{cursor:pointer}
 <header>
   <h1>錦江町消防水利マップ（仮）<span style="font-size:12px;font-weight:400;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 7px;margin-left:6px;vertical-align:3px">試作</span></h1>
   <p>役場周辺の国道の海側・山側の両方に、架空の消火栓7か所（うち1か所は使用不可の例）・防火水槽4か所を置いた見本</p>
-  <p><a href="#fire">▼ 出動メールを貼り付けて、近い水利と距離を出す</a></p>
+  <p><a href="#fire">▼ 出動メールを貼り付けて、近い水利と距離を出す</a>　<button class="btn sm" id="sample1" type="button">📩 例のメールで試す</button></p>
 </header>
 <div id="mapbox"><div id="map" aria-label="地図"></div><div id="swpanel" hidden></div><div id="maphint">地図のどこを押しても、そこに火点🔥を置きます</div></div>
 <div class="filters">
@@ -128,6 +129,7 @@ tbody tr{cursor:pointer}
     <textarea id="ll" rows="3" placeholder="出動メールの本文をそのまま貼り付け（地図のURLや「緯度,経度」でも可）" aria-label="火点の位置"></textarea>
     <button class="btn" id="go" type="button">この位置を火点に</button>
   </div>
+  <p class="note"><button class="btn sm" id="sample2" type="button">📩 例のメールを入れる</button>　説明用の架空の出動メールが入り、火点が置かれます。</p>
   <p class="note" id="llmsg" role="status"></p>
   <div id="near"><p class="note">火点を置くと、近い順に5か所と、道沿いの距離を表示します。</p></div>
 </section>
@@ -578,6 +580,9 @@ document.getElementById('go').onclick=()=>{const t=document.getElementById('ll')
   msg.style.color='';msg.textContent=`読み取った位置：北緯${ll.lat.toFixed(5)}・東経${ll.lng.toFixed(5)}。地図に火点を置きました。`;
   fireName=fireTitle(t);setFire(ll);
   document.getElementById('mapbox').scrollIntoView({behavior:'smooth',block:'start'})}; // 火点を置いた地図が見えるように上へ戻る
+// 説明用の例のメール（架空）。実際の出動メールと同じ形（1行目が種別、地図はNAVITIMEのURL）
+const SAMPLE_MAIL='建物火災発生（例）\n錦江町城元 〇〇付近（架空）\n指令目標:〇〇（架空）\n\nhttp://map.navitime.jp/?datum=1&lon=130.47.02.40&lat=31.14.39.12&nam=&cp=fgss';
+['sample1','sample2'].forEach(id=>document.getElementById(id).onclick=()=>{document.getElementById('ll').value=SAMPLE_MAIL;document.getElementById('go').click()});
 ['f-h','f-t'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{if(fire)setFire(fire.getLatLng())}));
 
 function selRow(id){tb.querySelectorAll('tr').forEach(r=>r.classList.toggle('sel',+r.dataset.id===id))}
