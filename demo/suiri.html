@@ -82,7 +82,7 @@ tbody tr{cursor:pointer}
 <small>実際の消火栓・防火水槽の位置ではありません。きんこう防災ナビには載せていません。</small></div>
 <header>
   <h1>消火栓・防火水槽の表示イメージ（きんこう防災ナビ）</h1>
-  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 11）</b></p>
+  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 12）</b></p>
   <p><a href="#fire">▼ 出動メールを貼り付けて、近い水利と距離を出す</a></p>
 </header>
 <div id="mapbox"><div id="map" aria-label="地図"></div><div id="maphint">地図のどこを押しても、そこに火点🔥を置きます</div></div>
@@ -188,8 +188,31 @@ function setPicking(on){picking=on;pickBtn.classList.toggle('on',on);pickBtn.tex
   map.getContainer().classList.toggle('picking',on)}
 // 地図のあいた所を押すと、そのまま火点を置く（ボタンは地図の場所へ戻るためのもの）
 pickBtn.onclick=()=>{document.getElementById('mapbox').scrollIntoView({behavior:'smooth',block:'start'});setPicking(true)};
-map.on('click',e=>{fireName='火点';setFire(e.latlng);setPicking(false)});
-map.on('contextmenu',e=>{fireName='火点';setFire(e.latlng);setPicking(false)}); // 長押しでも置ける
+// 地図を押したら火点を置く。
+// 地図の仕組み（Leaflet）の「クリック」は、地図が滑っている途中や拡大の途中に押すと届かないことがあるので、
+// 指（またはマウス）が触れて離れたことを直接見て判断する。
+{
+  const box=map.getContainer(),downs=new Map();let multi=false;
+  const skip=t=>t.closest('.leaflet-marker-icon,.leaflet-control,.leaflet-popup,.leaflet-tooltip.leaflet-interactive');
+  box.addEventListener('pointerdown',e=>{
+    downs.set(e.pointerId,{x:e.clientX,y:e.clientY,t:Date.now(),skip:!!skip(e.target)});
+    if(downs.size>1)multi=true; // 2本指（拡大・縮小）のときは火点にしない
+  },true);
+  const up=e=>{
+    const d=downs.get(e.pointerId);downs.delete(e.pointerId);
+    if(!d)return;
+    const wasMulti=multi;if(!downs.size)multi=false;
+    if(e.type!=='pointerup'||wasMulti||d.skip)return;
+    const moved=Math.hypot(e.clientX-d.x,e.clientY-d.y),dt=Date.now()-d.t;
+    if(moved>14||dt>1200)return; // 地図を動かした・長く押しすぎた
+    const r=box.getBoundingClientRect(),ll=map.containerPointToLatLng([e.clientX-r.left,e.clientY-r.top]);
+    fireName='火点';setFire(ll);setPicking(false);
+    tapMsg(`押した所に火点を置きました（北緯${ll.lat.toFixed(5)}・東経${ll.lng.toFixed(5)}）`);
+  };
+  box.addEventListener('pointerup',up,true);box.addEventListener('pointercancel',up,true);
+}
+function tapMsg(t){const el=document.getElementById('maphint');el.textContent=t;clearTimeout(tapMsg.t);
+  tapMsg.t=setTimeout(()=>el.textContent='地図のどこを押しても、そこに火点🔥を置きます',4000)}
 const fmt=m=>m<1000?Math.round(m)+' m':(m/1000).toFixed(2)+' km';
 // ---- 道沿いの距離 ----
 // 国土地理院の道路中心線（ベクトルタイル z=16、GeoJSON）を読み、道をつないだ網の上で最短の道のりを計算する。
