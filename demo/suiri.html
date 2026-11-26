@@ -274,7 +274,7 @@ pickBtn.onclick=()=>{document.getElementById('mapbox').scrollIntoView({behavior:
 function tapMsg(t){const el=document.getElementById('maphint');el.textContent=t;el.classList.add('show');clearTimeout(tapMsg.t);
   tapMsg.t=setTimeout(()=>{el.textContent='地図のどこを押しても、そこに火点🔥を置きます';el.classList.remove('show')},3000)}
 // アプリの版（sw-suiri.js の VER と必ず同じにする。更新のたびに上げる）
-const APP_VER='s1';document.getElementById('ver').textContent=APP_VER;
+const APP_VER='s2';document.getElementById('ver').textContent=APP_VER;
 if('serviceWorker' in navigator&&location.protocol!=='file:')addEventListener('load',()=>navigator.serviceWorker.register('sw-suiri.js').catch(()=>{}));
 const CIR='①②③④⑤⑥⑦⑧⑨⑩';
 // 地図の札用：数字と単位の間を少しあける（数字どうしがくっついて読み違えないように）
@@ -415,15 +415,16 @@ async function setFire(ll){
 // ---- 道順の表示：消火栓（赤）と防火水槽（青）の一番近い所への道順を、同時に太く・矢印つきで ----
 let shown=null;
 const KIND={'消火栓':{col:'#d92d20',dark:'#7f1d1d',key:'H',sel:'selH',mark:'栓'},'防火水槽':{col:'#1570ef',dark:'#1e3a8a',key:'T',sel:'selT',mark:'水'}};
-function arrowsAlong(pts,every){
-  // 道順に沿って、一定の間隔で進む向きの矢印を置く
-  const out=[];let acc=every/2;
-  for(let k=0;k<pts.length-1;k++){
-    const a=L.latLng(pts[k]),b=L.latLng(pts[k+1]),seg=map.distance(a,b);if(!seg)continue;
-    const A=map.project(a,18),B=map.project(b,18),ang=Math.atan2(B.y-A.y,B.x-A.x)*180/Math.PI;
-    while(acc<=seg){const t=acc/seg;out.push({ll:L.latLng(a.lat+(b.lat-a.lat)*t,a.lng+(b.lng-a.lng)*t),ang});acc+=every}
-    acc-=seg;
-  }
+function arrowsAlong(pts){
+  // 道順に沿って、進む向きの矢印を少しだけ置く（画面で約120pxごと、1本の道順に最大5個。多いとごちゃごちゃするため）
+  const P=pts.map(q=>map.latLngToLayerPoint(L.latLng(q)));let len=0;const segL=[];
+  for(let k=0;k<P.length-1;k++){const d=P[k].distanceTo(P[k+1]);segL.push(d);len+=d}
+  if(len<60)return [];
+  const n=Math.max(1,Math.min(5,Math.round(len/120))),out=[];
+  for(let i=0;i<n;i++){let at=(i+0.5)*len/n;
+    for(let k=0;k<segL.length;k++){if(at<=segL[k]&&segL[k]>0){const t=at/segL[k],A=P[k],B=P[k+1];
+        out.push({ll:map.layerPointToLatLng(L.point(A.x+(B.x-A.x)*t,A.y+(B.y-A.y)*t)),ang:Math.atan2(B.y-A.y,B.x-A.x)*180/Math.PI});break}
+      at-=segL[k]}}
   return out;
 }
 // ---- 札（栓1・水2 など）を、道順の線や印に重ならない所に置く ----
@@ -485,7 +486,7 @@ for(const b of boxes)if(r.x0<b.x1&&r.x1>b.x0&&r.y0<b.y1&&r.y1>b.y0)n+=10;
     else ld.style.display='none';
   });
 }
-map.on('zoomend',()=>placeLabels());
+map.on('zoomend',()=>{if(shown)drawRoutes(true);else placeLabels()}); // 拡大・縮小したら矢印の数を合わせ直す
 // 地図の下の切り替えの帯：「◀ 第1候補 ▶」で、消火栓・防火水槽をそれぞれ切り替える
 function drawSwitch(){
   const pn=document.getElementById('swpanel');
@@ -513,11 +514,11 @@ function drawOne(r,ll,col,dark){
     L.polyline(all,{color:col,weight:4,dashArray:'2 7',interactive:false}).addTo(fireLines);
   }
   // 矢印は水利から火点へ（水が流れる向き・ホースを延ばす向き）
-  arrowsAlong([...all].reverse(),45).forEach(a=>L.marker(a.ll,{interactive:false,icon:L.divIcon({className:'',
+  arrowsAlong([...all].reverse()).forEach(a=>L.marker(a.ll,{interactive:false,icon:L.divIcon({className:'',
     html:`<span class="arw" style="transform:rotate(${a.ang}deg);text-shadow:0 0 2px ${dark},0 0 2px ${dark}">➤</span>`,iconSize:[16,16],iconAnchor:[8,8]})}).addTo(fireLines));
   return all;
 }
-function drawRoutes(){
+function drawRoutes(noFit){
   if(!shown)return;
   const {ll,roadOK,res}=shown;fireLines.clearLayers();
   // ほかの候補は細い灰色の線
@@ -544,7 +545,7 @@ function drawRoutes(){
   if(pts.length){const rb=L.latLngBounds(pts);const ph=document.getElementById('swpanel').offsetHeight;
     // 下の帯に隠れない範囲に、道順が入っていなければ地図を合わせる
     const sz=map.getSize(),tl=map.containerPointToLatLng([10,10]),br=map.containerPointToLatLng([sz.x-10,sz.y-ph-16]);
-    if(!L.latLngBounds(tl,br).contains(rb))map.fitBounds(rb,{paddingTopLeft:[50,50],paddingBottomRight:[50,ph+40],maxZoom:18})}
+    if(!noFit&&!L.latLngBounds(tl,br).contains(rb))map.fitBounds(rb,{paddingTopLeft:[50,50],paddingBottomRight:[50,ph+40],maxZoom:18})}
   makeLabels(labs);
   map.getContainer().classList.add('routing'); // 道順を出している間は、水利の通し番号（1〜10）を隠す
   // 一覧
