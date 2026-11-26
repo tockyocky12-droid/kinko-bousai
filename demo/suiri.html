@@ -69,8 +69,15 @@ tbody tr{cursor:pointer}
 .calc{display:inline-block;white-space:nowrap;background:rgba(23,33,43,.85);color:#fff;font-size:12px;padding:2px 8px;border-radius:999px}
 .labw{position:relative;width:0;height:0}
 .labw .rank{position:absolute;left:10px;top:-12px;cursor:pointer}
-.labw .lead{display:none;position:absolute;left:0;top:0;height:1.5px;background:#374151;transform-origin:0 50%;pointer-events:none;opacity:.7}
+.labw .lead{display:none;position:absolute;left:0;top:-1px;height:2px;background:#fff;box-shadow:0 0 0 1px rgba(23,33,43,.8);transform-origin:0 50%;pointer-events:none}
 .routing .leaflet-tooltip.num{display:none}
+.basesel{display:flex;border-radius:8px;overflow:hidden;box-shadow:0 1px 5px rgba(0,0,0,.35);background:#fff}
+.basesel button{font:inherit;font-size:13px;border:0;background:#fff;color:#17212b;padding:7px 10px;cursor:pointer}
+.basesel button+button{border-left:1px solid #d6dbe1}
+.basesel button[aria-pressed="true"]{background:#1e3a5f;color:#fff;font-weight:700}
+/* 写真のときは、透かしと通し番号を見やすく */
+.isphoto ~ #maphint{background:rgba(0,0,0,.75)}
+.isphoto .leaflet-tooltip.num{color:#fff;text-shadow:0 0 3px #000,0 0 3px #000}
 .leaflet-container{font-family:var(--f)}
 .leaflet-popup-content{margin:10px 12px;font-size:13.5px;line-height:1.55;min-width:190px}
 .pp-h{font-size:15.5px;font-weight:700;margin-bottom:4px}
@@ -87,7 +94,7 @@ tbody tr{cursor:pointer}
 <small>実際の消火栓・防火水槽の位置ではありません。きんこう防災ナビには載せていません。</small></div>
 <header>
   <h1>消火栓・防火水槽の表示イメージ（きんこう防災ナビ）</h1>
-  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 14）</b></p>
+  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 15）</b></p>
   <p><a href="#fire">▼ 出動メールを貼り付けて、近い水利と距離を出す</a></p>
 </header>
 <div id="mapbox"><div id="map" aria-label="地図"></div><div id="maphint">地図のどこを押しても、そこに火点🔥を置きます</div></div>
@@ -127,7 +134,7 @@ tbody tr{cursor:pointer}
     </ul>
   </div>
   <p class="note">表の形は、デジタル庁「推奨データセット（自治体標準オープンデータセット）」の「消防水利施設一覧」を参考にしています。<br>
-  背景の地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>（国土地理院）</p>
+  背景の地図・写真：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>（淡色地図・標準地図・全国最新写真〈シームレス〉、国土地理院）</p>
 </main>
 
 <script src="../lib/leaflet-1.9.4/leaflet.js"></script>
@@ -150,8 +157,28 @@ const DEMO=[
 // clickTolerance：指で押したときの少しのずれ（12ピクセルまで）は「押した」とみなす
 const map=L.map('map',{maxZoom:18,minZoom:12,doubleClickZoom:false,clickTolerance:12});
 map.attributionControl.setPrefix(false);
-L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',{maxZoom:18,crossOrigin:'anonymous',
-  attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>'}).addTo(map);
+// 背景の地図：淡色・標準・写真（地理院タイル）。写真は空中写真（全国最新写真・シームレス）
+const gsiAttr='<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>';
+const BASES={
+  pale:L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',{maxZoom:18,crossOrigin:'anonymous',attribution:gsiAttr}),
+  std:L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',{maxZoom:18,crossOrigin:'anonymous',attribution:gsiAttr}),
+  photo:L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',{maxZoom:18,crossOrigin:'anonymous',attribution:gsiAttr})
+};
+let baseKey=(()=>{try{return localStorage.getItem('demo-suiri:base')}catch(e){return null}})();
+if(!BASES[baseKey])baseKey='pale';
+function setBase(k){
+  Object.entries(BASES).forEach(([key,l])=>{if(key!==k&&map.hasLayer(l))l.remove()});
+  BASES[k].addTo(map);baseKey=k;try{localStorage.setItem('demo-suiri:base',k)}catch(e){}
+  document.querySelectorAll('#basesel button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.b===k));
+  map.getContainer().classList.toggle('isphoto',k==='photo');
+}
+{const c=L.control({position:'topright'});
+  c.onAdd=()=>{const d=L.DomUtil.create('div','basesel');d.id='basesel';d.setAttribute('role','group');d.setAttribute('aria-label','背景の地図');
+    d.innerHTML='<button data-b="pale">淡色</button><button data-b="std">標準</button><button data-b="photo">写真</button>';
+    L.DomEvent.disableClickPropagation(d);
+    d.querySelectorAll('button').forEach(b=>b.onclick=()=>setBase(b.dataset.b));return d};
+  c.addTo(map);}
+setBase(baseKey);
 
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const groups={'消火栓':L.layerGroup().addTo(map),'防火水槽':L.layerGroup().addTo(map)};
@@ -392,7 +419,9 @@ function placeLabels(){
   const boxAt=(ll,r)=>{const p=map.latLngToContainerPoint(ll);return {x0:p.x-r,y0:p.y-r,x1:p.x+r,y1:p.y+r}};
   DEMO.forEach(d=>boxes.push(boxAt([d.lat,d.lng],14)));
   if(fire)boxes.push(boxAt(fire.getLatLng(),16));
-  const hit=(r)=>{let n=0;for(const b of boxes)if(r.x0<b.x1&&r.x1>b.x0&&r.y0<b.y1&&r.y1>b.y0)n+=3;
+  const sz=map.getSize();
+  const hit=(r)=>{let n=0;if(r.x0<4||r.y0<4||r.x1>sz.x-4||r.y1>sz.y-4)n+=5; // 地図からはみ出す所は避ける
+for(const b of boxes)if(r.x0<b.x1&&r.x1>b.x0&&r.y0<b.y1&&r.y1>b.y0)n+=3;
     for(const [a,b] of segs)if(segHitsRect(a,b,r))n++;return n};
   const pad=3;
   curLabs.forEach(l=>{
