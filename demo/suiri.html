@@ -70,7 +70,7 @@ tbody tr{cursor:pointer}
 <small>実際の消火栓・防火水槽の位置ではありません。きんこう防災ナビには載せていません。</small></div>
 <header>
   <h1>消火栓・防火水槽の表示イメージ（きんこう防災ナビ）</h1>
-  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 6）</b></p>
+  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 7）</b></p>
   <p><a href="#fire">▼ 出動メールを貼り付けて、近い水利と距離を出す</a></p>
 </header>
 <div id="mapbox"><div id="map" aria-label="地図"></div><div id="maphint">地図のどこを押しても、そこに火点🔥を置きます</div></div>
@@ -89,6 +89,7 @@ tbody tr{cursor:pointer}
     <textarea id="ll" rows="3" placeholder="出動メールの本文をそのまま貼り付け（地図のURLや「緯度,経度」でも可）" aria-label="火点の位置"></textarea>
     <button class="btn" id="go" type="button">この位置を火点に</button>
   </div>
+  <p class="note" id="llmsg" role="status"></p>
   <div id="near"><p class="note">火点を置くと、近い順に5か所と、道沿いの距離を表示します。</p></div>
 </section>
 <main>
@@ -185,7 +186,8 @@ const t2x=(lng,z)=>Math.floor((lng+180)/360*2**z);
 const t2y=(lat,z)=>{const r=lat*Math.PI/180;return Math.floor((1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*2**z)};
 async function rdTile(x,y){
   const k=x+'/'+y;if(rdCache.has(k))return rdCache.get(k);
-  const p=fetch(RD_URL.replace('{x}',x).replace('{y}',y),{mode:'cors',credentials:'omit'})
+  const ac=new AbortController();setTimeout(()=>ac.abort(),8000);
+  const p=fetch(RD_URL.replace('{x}',x).replace('{y}',y),{mode:'cors',credentials:'omit',signal:ac.signal})
     .then(r=>r.ok?r.json():(r.status===404?{features:[]}:Promise.reject(r.status))).catch(e=>{rdCache.delete(k);throw e});
   rdCache.set(k,p);return p;
 }
@@ -309,10 +311,13 @@ document.getElementById('here').onclick=()=>{
 //  ・「31.24,130.78」や、地図のURL（@31.24,130.78 / q=31.24,130.78 / #18/31.24/130.78 など）
 function dms(v){const p=v.split('.');if(p.length<3)return null;return +p[0]+(+p[1])/60+(+(p[2]+'.'+(p[3]||'0')))/3600}
 function parseLL(t){
-  const la=t.match(/[?&]lat=([\d.]+)/),lo=t.match(/[?&]lon=([\d.]+)/);
+  // 全角の文字・数字を半角に、%2E を「.」に、URLの途中の改行や空白を詰める
+  t=t.normalize('NFKC').replace(/%2[Ee]/g,'.').replace(/%3[Dd]/g,'=').replace(/%26/g,'&');
+  const u=t.replace(/\s+/g,'');
+  const la=u.match(/lat=([\d.]+)/i),lo=u.match(/lon=([\d.]+)/i)||u.match(/lng=([\d.]+)/i);
   if(la&&lo){
     let a=la[1].split('.').length>=3?dms(la[1]):+la[1],b=lo[1].split('.').length>=3?dms(lo[1]):+lo[1];
-    const dt=t.match(/[?&]datum=(\d)/);
+    const dt=u.match(/datum=(\d)/i);
     if(dt&&dt[1]==='0'){const a2=a-0.00010695*a+0.000017464*b+0.0046017,b2=b-0.000046038*a-0.000083043*b+0.010040;a=a2;b=b2}
     if(a>=20&&a<=46&&b>=122&&b<=154)return L.latLng(a,b);
   }
@@ -324,8 +329,11 @@ function parseLL(t){
 }
 // メールの1行目（例：建物火災発生）を火点の名前に使う。この画面の中だけで使い、どこにも保存・送信しない
 function fireTitle(t){const l=t.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);return l.length&&!/^https?:/.test(l[0])&&!/\d+\.\d+/.test(l[0])&&l[0].length<=20?l[0]:'火点'}
-document.getElementById('go').onclick=()=>{const t=document.getElementById('ll').value,ll=parseLL(t);
-  if(!ll){alert('位置を読み取れませんでした。地図のリンクが入っているか確かめてください');return}fireName=fireTitle(t);setFire(ll)};
+document.getElementById('go').onclick=()=>{const t=document.getElementById('ll').value,ll=parseLL(t),msg=document.getElementById('llmsg');
+  if(!ll){msg.style.color='#b42318';msg.textContent=t.trim()?'位置を読み取れませんでした。メールの中の「http://map.navitime.jp/…lat=…lon=…」の部分が入っているか確かめてください。':'先にメールの本文を貼り付けてください。';return}
+  msg.style.color='';msg.textContent=`読み取った位置：北緯${ll.lat.toFixed(5)}・東経${ll.lng.toFixed(5)}。地図に火点を置きました。`;
+  fireName=fireTitle(t);setFire(ll);
+  document.getElementById('mapbox').scrollIntoView({behavior:'smooth',block:'start'})}; // 火点を置いた地図が見えるように上へ戻る
 ['f-h','f-t'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{if(fire)setFire(fire.getLatLng())}));
 
 function selRow(id){tb.querySelectorAll('tr').forEach(r=>r.classList.toggle('sel',+r.dataset.id===id))}
