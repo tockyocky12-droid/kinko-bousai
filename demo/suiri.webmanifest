@@ -1,0 +1,16 @@
+{
+  "name": "錦江町消防水利マップ（仮）",
+  "short_name": "消防水利",
+  "description": "火点から近い消火栓・防火水槽までの道沿いの距離とホース本数を出す試作（説明用の架空データ）",
+  "lang": "ja",
+  "start_url": "./suiri.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f4f7",
+  "theme_color": "#b42318",
+  "icons": [
+    {"src": "suiri-icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "suiri-icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "suiri-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

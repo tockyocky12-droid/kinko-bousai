@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>錦江町消防水利マップ（仮）試作・説明用の架空データ</title>
+<link rel="manifest" href="suiri.webmanifest">
+<meta name="theme-color" content="#b42318">
+<link rel="apple-touch-icon" href="suiri-apple-touch-icon.png">
+<link rel="icon" href="suiri-icon-192.png">
 <link rel="stylesheet" href="../lib/leaflet-1.9.4/leaflet.css">
 <style>
 :root{--bg:#f2f4f7;--panel:#fff;--fg:#17212b;--muted:#5b6672;--line:#d6dbe1;--accent:#1e3a5f;
@@ -59,8 +63,11 @@ tbody tr{cursor:pointer}
 .leaflet-container.picking{cursor:crosshair}
 .rank{display:inline-block;white-space:nowrap;line-height:20px;height:24px;padding:0 6px;border-radius:12px;background:#fff;color:#374151;font-size:13px;font-weight:700;border:2px solid #6b7280;box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .rank .mk{margin-right:7px;padding-right:7px;border-right:1px solid rgba(255,255,255,.6)}
+.rank.two{height:auto;line-height:1.15;padding:3px 9px 3px 7px;border-radius:10px;display:inline-flex;align-items:center}
+.rank.two .v{display:inline-block}.rank .sub{font-size:11.5px;font-weight:700;opacity:.95}
 .rank b{font-size:14px}.rank i{font-style:normal;font-weight:400;font-size:11.5px;margin-left:2px}
 .rank.on{color:#fff;border-color:#fff;transform:scale(1.15)}
+.rank.on.two{transform:none}
 .arw{display:block;width:16px;height:16px;line-height:16px;text-align:center;color:#fff;font-size:11px;text-shadow:0 0 2px #9a3412,0 0 2px #9a3412}
 .goal{display:inline-block;white-space:nowrap;background:#f97316;color:#fff;font-size:13px;font-weight:700;padding:2px 8px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 #near ol.routes{list-style:none;padding:0}
@@ -107,7 +114,7 @@ tbody tr{cursor:pointer}
 </head>
 <body>
 <div id="demo">説明用の見本です。位置・番号・数値はすべて架空のものです。
-<small>実際の消火栓・防火水槽の位置ではありません。町の正式な地図ではありません。 <a href="./" style="color:#fff">試作の説明へ</a></small></div>
+<small>実際の消火栓・防火水槽の位置ではありません。町の正式な地図ではありません。</small></div>
 <header>
   <h1>錦江町消防水利マップ（仮）<span style="font-size:12px;font-weight:400;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 7px;margin-left:6px;vertical-align:3px">試作</span></h1>
   <p>役場周辺の国道の海側・山側の両方に、架空の消火栓7か所（うち1か所は使用不可の例）・防火水槽4か所を置いた見本</p>
@@ -151,7 +158,10 @@ tbody tr{cursor:pointer}
     </ul>
   </div>
   <p class="note">表の形は、デジタル庁「推奨データセット（自治体標準オープンデータセット）」の「消防水利施設一覧」を参考にしています。<br>
-  背景の地図・写真：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>（淡色地図・全国最新写真〈シームレス〉、国土地理院）</p>
+  背景の地図・写真：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>（淡色地図・全国最新写真〈シームレス〉、国土地理院）<br>
+  道路：国土地理院 道路中心線（ベクトルタイル・試験公開）<br>
+  ホーム画面に追加すると、アプリのように開けます（一度見た地図と道路は端末に覚えるので、通信量が減り、電波が弱い所でも開きやすくなります）。<br>
+  版 <span id="ver"></span></p>
 </main>
 
 <script src="../lib/leaflet-1.9.4/leaflet.js"></script>
@@ -263,9 +273,15 @@ pickBtn.onclick=()=>{document.getElementById('mapbox').scrollIntoView({behavior:
 }
 function tapMsg(t){const el=document.getElementById('maphint');el.textContent=t;el.classList.add('show');clearTimeout(tapMsg.t);
   tapMsg.t=setTimeout(()=>{el.textContent='地図のどこを押しても、そこに火点🔥を置きます';el.classList.remove('show')},3000)}
+// アプリの版（sw-suiri.js の VER と必ず同じにする。更新のたびに上げる）
+const APP_VER='s1';document.getElementById('ver').textContent=APP_VER;
+if('serviceWorker' in navigator&&location.protocol!=='file:')addEventListener('load',()=>navigator.serviceWorker.register('sw-suiri.js').catch(()=>{}));
 const CIR='①②③④⑤⑥⑦⑧⑨⑩';
 // 地図の札用：数字と単位の間を少しあける（数字どうしがくっついて読み違えないように）
 const fmtL=m=>m<1000?`<b>${Math.round(m)}</b><i>m</i>`:`<b>${(m/1000).toFixed(2)}</b><i>km</i>`;
+// ホース本数（1本20m、道沿いの距離から。道が読めないときは直線距離から）と、口径・容量の短い書き方
+const hose=r=>Math.ceil((r.road??r.m)/20);
+const spec=d=>d.kind==='消火栓'?'口径'+d.dia:d.cap+'㎥';
 const fmt=m=>m<1000?Math.round(m)+' m':(m/1000).toFixed(2)+' km';
 // ---- 道沿いの距離 ----
 // 国土地理院の道路中心線（ベクトルタイル z=16、GeoJSON）を読み、道をつないだ網の上で最短の道のりを計算する。
@@ -478,7 +494,7 @@ function drawSwitch(){
   pn.innerHTML=['消火栓','防火水槽'].map(k=>{const K=KIND[k],arr=shown[K.key],i=shown[K.sel],r=arr[i];
     if(!r)return `<div class="sw" style="border-left-color:${K.col}"><span class="t">${k}：近くにありません</span></div>`;
     return `<div class="sw" style="border-left-color:${K.col}"><button data-k="${k}" data-d="-1" aria-label="${k}の前の候補" ${i===0?'disabled':''}>◀</button>
-      <span class="t"><b style="color:${K.col}">${k} 第${i+1}候補</b>（${arr.length}か所中）<br>${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}・${esc(r.d.name.replace('（架空）',''))}</span>
+      <span class="t"><b style="color:${K.col}">${k} 第${i+1}候補</b>（${arr.length}か所中）<br>${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}・ホース${hose(r)}本・${spec(r.d)}</span>
       <button data-k="${k}" data-d="1" aria-label="${k}の次の候補" ${i>=arr.length-1?'disabled':''}>▶</button></div>`}).join(''); 
   pn.querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>{const K=KIND[b.dataset.k];
     shown[K.sel]=Math.max(0,Math.min(shown[K.key].length-1,shown[K.sel]+(+b.dataset.d)));drawRoutes()});
@@ -512,7 +528,7 @@ function drawRoutes(){
       if(on){
         // 選んだ水利だけ、距離つきの札を出す（線や印に重ならない所に置く）
         labs.push({ll:L.latLng(r.d.lat,r.d.lng),prio:0,onClick:()=>{},
-          html:`<span class="rank on" style="background:${K.col}"><span class="mk">${K.mark}${CIR[i]}</span>${fmtL(r.road??r.m)}</span>`});
+          html:`<span class="rank on two" style="background:${K.col}"><span class="mk">${K.mark}${CIR[i]}</span><span class="v">${fmtL(r.road??r.m)}<br><span class="sub">ホース${hose(r)}本・${spec(r.d)}</span></span></span>`});
       }else{
         // ほかの候補は、印の右上に小さな番号だけ（押すとその候補に切り替え）
         L.marker([r.d.lat,r.d.lng],{zIndexOffset:650,icon:L.divIcon({className:'',html:`<span class="cno" style="background:${K.col}">${i+1}</span>`,iconSize:[18,18],iconAnchor:[-4,22]})})
