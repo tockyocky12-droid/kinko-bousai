@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>【説明用・架空データ】消火栓・防火水槽の表示イメージ</title>
+<link rel="stylesheet" href="../lib/leaflet-1.9.4/leaflet.css">
+<style>
+:root{--bg:#f2f4f7;--panel:#fff;--fg:#17212b;--muted:#5b6672;--line:#d6dbe1;--accent:#1e3a5f;
+  --demo:#b42318;--demo-bg:#fde8e7;--f:"BIZ UDGothic","Hiragino Sans","Yu Gothic UI","Yu Gothic","Noto Sans JP",sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f);font-size:15px;line-height:1.6}
+#demo{background:var(--demo);color:#fff;padding:10px 14px;font-size:14px;font-weight:700;text-align:center}
+#demo small{display:block;font-weight:400;font-size:12.5px;opacity:.95}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 14px}
+header h1{font-size:17px;margin:0}
+header p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+#mapbox{position:relative;height:56vh;min-height:320px}
+#map{position:absolute;inset:0}
+/* 地図の上に「架空」の透かし */
+#mapbox::after{content:"説明用・架空データ";position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;z-index:450;
+  font-size:30px;font-weight:700;color:rgba(180,35,24,.16);transform:rotate(-18deg)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+.filters label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:14px;cursor:pointer}
+.filters input{width:18px;height:18px;margin:0}
+.ic{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#fff;font-size:12px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.ic.h{background:#d92d20}
+.ic.t{background:#1570ef;border-radius:5px}
+main{max-width:760px;margin:0 auto;padding:10px 14px 40px}
+h2{font-size:16px;margin:20px 0 6px;color:var(--accent)}
+.note{font-size:13.5px;color:var(--muted);margin:4px 0}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table{border-collapse:collapse;font-size:13px;min-width:100%}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;white-space:nowrap;text-align:left}
+th{background:#f7f8fa;font-weight:700;font-size:12px}
+tr.sel td{background:#fff6d6}
+tbody tr{cursor:pointer}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
+.box ul{margin:4px 0;padding-left:1.3em}
+.leaflet-container{font-family:var(--f)}
+.leaflet-popup-content{margin:10px 12px;font-size:13.5px;line-height:1.55;min-width:190px}
+.pp-h{font-size:15.5px;font-weight:700;margin-bottom:4px}
+.pp-d{color:var(--demo);font-size:12px;font-weight:700}
+.pp dl{display:grid;grid-template-columns:auto 1fr;gap:1px 10px;margin:4px 0 0}
+.pp dt{color:var(--muted)}
+.pp dd{margin:0}
+.num{background:transparent;border:0;box-shadow:none;font-size:11px;font-weight:700;color:#17212b;padding:0}
+.num::before{display:none}
+</style>
+</head>
+<body>
+<div id="demo">説明用の見本です。位置・番号・数値はすべて架空のものです。
+<small>実際の消火栓・防火水槽の位置ではありません。きんこう防災ナビには載せていません。</small></div>
+<header>
+  <h1>消火栓・防火水槽の表示イメージ（きんこう防災ナビ）</h1>
+  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本</p>
+</header>
+<div id="mapbox"><div id="map" aria-label="地図"></div></div>
+<div class="filters">
+  <label><input type="checkbox" id="f-h" checked><span class="ic h">栓</span>消火栓</label>
+  <label><input type="checkbox" id="f-t" checked><span class="ic t">水</span>防火水槽</label>
+</div>
+<main>
+  <p class="note">地図の印を押すと、番号・規模などが出ます。下の表の行を押すと、地図がその場所に動きます。</p>
+
+  <h2>この見本で使っている項目（国の「消防水利施設一覧」の形式に沿った例）</h2>
+  <div class="tblwrap"><table id="tbl"><thead><tr>
+    <th>ID</th><th>種別</th><th>名称・番号</th><th>所在地（架空）</th><th>緯度</th><th>経度</th><th>口径(mm)</th><th>容量(㎥)</th><th>備考</th>
+  </tr></thead><tbody></tbody></table></div>
+
+  <h2>ご相談したいこと</h2>
+  <div class="box">
+    <ul>
+      <li>実際の台帳（位置・規模）は、どの課・機関が管理しているか（役場の地図システムに消火栓の表示あり。元データの担当を知りたい）</li>
+      <li>一般に公開してよいか。公開してよい項目・控える項目（例：位置は可、口径・容量は不可など）</li>
+      <li>公開してよい場合、上の表の形（Excel・CSV）でデータをいただけるか</li>
+      <li>一般公開が難しい場合は、載せない、または公開の仕方を見直します</li>
+    </ul>
+  </div>
+  <p class="note">表の形は、デジタル庁「推奨データセット（自治体標準オープンデータセット）」の「消防水利施設一覧」を参考にしています。<br>
+  背景の地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>（国土地理院）</p>
+</main>
+
+<script src="../lib/leaflet-1.9.4/leaflet.js"></script>
+<script>
+// ---- 架空のデータ（説明用。実在の消火栓・防火水槽ではない） ----
+// 役場入口バス停（北緯31.2435 東経130.7846 付近）の周り約500mに、適当に置いたもの
+const DEMO=[
+  {id:1, kind:'消火栓',  name:'消火栓 第101号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2448, lng:130.7838, dia:75},
+  {id:2, kind:'消火栓',  name:'消火栓 第102号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2426, lng:130.7861, dia:75},
+  {id:3, kind:'消火栓',  name:'消火栓 第103号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2412, lng:130.7832, dia:100},
+  {id:4, kind:'消火栓',  name:'消火栓 第104号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2459, lng:130.7869, dia:75},
+  {id:5, kind:'消火栓',  name:'消火栓 第105号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2437, lng:130.7812, dia:150},
+  {id:6, kind:'消火栓',  name:'消火栓 第106号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2401, lng:130.7858, dia:75},
+  {id:7, kind:'防火水槽', name:'防火水槽 第201号（架空）', addr:'錦江町城元 ○○公民館付近', lat:31.2467, lng:130.7850, cap:40, note:'地下式'},
+  {id:8, kind:'防火水槽', name:'防火水槽 第202号（架空）', addr:'錦江町城元 ○○公園付近',   lat:31.2419, lng:130.7880, cap:100, note:'地下式・耐震性'},
+  {id:9, kind:'防火水槽', name:'防火水槽 第203号（架空）', addr:'錦江町城元 ○○付近',       lat:31.2443, lng:130.7795, cap:40, note:'地上式'},
+  {id:10,kind:'防火水槽', name:'防火水槽 第204号（架空）', addr:'錦江町城元 ○○付近',       lat:31.2395, lng:130.7820, cap:60, note:'地下式'}
+];
+
+const map=L.map('map',{maxZoom:18,minZoom:12});
+map.attributionControl.setPrefix(false);
+L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',{maxZoom:18,crossOrigin:'anonymous',
+  attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>'}).addTo(map);
+
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const groups={'消火栓':L.layerGroup().addTo(map),'防火水槽':L.layerGroup().addTo(map)};
+const marks={};
+DEMO.forEach(d=>{
+  const h=d.kind==='消火栓';
+  const icon=L.divIcon({className:'',html:`<span class="ic ${h?'h':'t'}">${h?'栓':'水'}</span>`,iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-10]});
+  const m=L.marker([d.lat,d.lng],{icon,title:d.name}).addTo(groups[d.kind]);
+  m.bindTooltip(String(d.id),{permanent:true,direction:'right',offset:[10,0],className:'num'});
+  m.bindPopup(`<div class="pp"><div class="pp-d">説明用・架空データ</div><div class="pp-h">${esc(d.name)}</div><dl>
+    <dt>種別</dt><dd>${esc(d.kind)}</dd>
+    ${h?`<dt>口径</dt><dd>${d.dia} mm</dd>`:`<dt>容量</dt><dd>${d.cap} ㎥</dd>`}
+    <dt>所在地</dt><dd>${esc(d.addr)}</dd>
+    ${d.note?`<dt>備考</dt><dd>${esc(d.note)}</dd>`:''}
+  </dl></div>`);
+  m.on('popupopen',()=>selRow(d.id));
+  marks[d.id]=m;
+});
+map.fitBounds(L.latLngBounds(DEMO.map(d=>[d.lat,d.lng])),{padding:[30,30]});
+
+// 絞り込み
+[['f-h','消火栓'],['f-t','防火水槽']].forEach(([id,k])=>document.getElementById(id).onchange=e=>{
+  e.target.checked?groups[k].addTo(map):groups[k].remove()});
+
+// 表
+const tb=document.querySelector('#tbl tbody');
+DEMO.forEach(d=>{
+  const tr=document.createElement('tr');tr.dataset.id=d.id;
+  tr.innerHTML=`<td>${d.id}</td><td>${esc(d.kind)}</td><td>${esc(d.name)}</td><td>${esc(d.addr)}</td><td>${d.lat.toFixed(4)}</td><td>${d.lng.toFixed(4)}</td><td>${d.dia??''}</td><td>${d.cap??''}</td><td>${esc(d.note)}</td>`;
+  tr.onclick=()=>{const k=d.kind==='消火栓'?'f-h':'f-t',cb=document.getElementById(k);
+    if(!cb.checked){cb.checked=true;groups[d.kind].addTo(map)}
+    map.setView([d.lat,d.lng],17);marks[d.id].openPopup();document.getElementById('mapbox').scrollIntoView({behavior:'smooth'})};
+  tb.append(tr);
+});
+function selRow(id){tb.querySelectorAll('tr').forEach(r=>r.classList.toggle('sel',+r.dataset.id===id))}
+</script>
+</body>
+</html>
