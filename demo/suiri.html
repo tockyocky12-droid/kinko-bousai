@@ -41,7 +41,7 @@ tbody tr{cursor:pointer}
 .fire{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 14px}
 .fire h2{margin:0 0 6px}
 .fire .row{display:flex;gap:6px;flex-wrap:wrap}
-.fire input[type=text]{flex:1;min-width:200px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px}
+.fire textarea{flex:1;min-width:200px;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;resize:vertical}
 .btn{font:inherit;font-size:14px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);cursor:pointer}
 .btn.pri{background:#b42318;border-color:#b42318;color:#fff;font-weight:700}
 .btn.on{outline:3px solid #f59e0b}
@@ -84,7 +84,7 @@ tbody tr{cursor:pointer}
     <button class="btn" id="clear" type="button">火点を消す</button>
   </div>
   <div class="row" style="margin-top:6px">
-    <input type="text" id="ll" placeholder="緯度,経度 または 地図のURLを貼り付け" aria-label="火点の位置">
+    <textarea id="ll" rows="3" placeholder="出動メールの本文をそのまま貼り付け（地図のURLや「緯度,経度」でも可）" aria-label="火点の位置"></textarea>
     <button class="btn" id="go" type="button">この位置を火点に</button>
   </div>
   <div id="near"><p class="note">火点を置くと、近い順に5か所と直線距離を表示します。</p></div>
@@ -166,17 +166,17 @@ DEMO.forEach(d=>{
   tb.append(tr);
 });
 // ---- 火点から近い水利 ----
-let fire=null,fireLines=L.layerGroup().addTo(map),picking=false;
+let fireName='火点',fire=null,fireLines=L.layerGroup().addTo(map),picking=false;
 const pickBtn=document.getElementById('pick');
 function setPicking(on){picking=on;pickBtn.classList.toggle('on',on);pickBtn.textContent=on?'地図を押してください…':'地図を押して火点を置く';
   map.getContainer().classList.toggle('picking',on)}
-pickBtn.onclick=()=>setPicking(!picking);
+pickBtn.onclick=()=>{fireName='火点';setPicking(!picking)};
 map.on('click',e=>{if(picking){setFire(e.latlng);setPicking(false)}});
 const fmt=m=>m<1000?Math.round(m)+' m':(m/1000).toFixed(2)+' km';
 function setFire(ll){
   if(fire)fire.remove();fireLines.clearLayers();
   fire=L.marker(ll,{draggable:true,zIndexOffset:1000,icon:L.divIcon({className:'',html:'<span class="fireic">🔥</span>',iconSize:[28,28],iconAnchor:[14,22]})}).addTo(map);
-  fire.bindTooltip('火点（ずらせます）',{direction:'top',offset:[0,-20]});
+  fire.bindTooltip(esc(fireName)+'（ずらせます）',{direction:'top',offset:[0,-20]});
   fire.on('dragend',()=>setFire(fire.getLatLng()));
   const vis=DEMO.filter(d=>map.hasLayer(groups[d.kind]));
   const list=vis.map(d=>({d,m:map.distance(ll,[d.lat,d.lng])})).sort((a,b)=>a.m-b.m).slice(0,5);
@@ -197,16 +197,28 @@ document.getElementById('here').onclick=()=>{
   if(!navigator.geolocation){alert('この端末では現在地が使えません');return}
   navigator.geolocation.getCurrentPosition(p=>setFire(L.latLng(p.coords.latitude,p.coords.longitude)),
     ()=>alert('現在地を取得できませんでした'),{enableHighAccuracy:true,timeout:20000})};
-// 「31.24,130.78」や、地図のURL（@31.24,130.78 / q=31.24,130.78 / #18/31.24/130.78 など）から位置を読む
+// 火点の位置を読む
+//  ・出動メールの NAVITIME のリンク：lat=31.14.33.53&lon=130.47.26.71（度.分.秒）。datum=0 は旧日本測地系なので世界測地系に直す
+//  ・「31.24,130.78」や、地図のURL（@31.24,130.78 / q=31.24,130.78 / #18/31.24/130.78 など）
+function dms(v){const p=v.split('.');if(p.length<3)return null;return +p[0]+(+p[1])/60+(+(p[2]+'.'+(p[3]||'0')))/3600}
 function parseLL(t){
+  const la=t.match(/[?&]lat=([\d.]+)/),lo=t.match(/[?&]lon=([\d.]+)/);
+  if(la&&lo){
+    let a=la[1].split('.').length>=3?dms(la[1]):+la[1],b=lo[1].split('.').length>=3?dms(lo[1]):+lo[1];
+    const dt=t.match(/[?&]datum=(\d)/);
+    if(dt&&dt[1]==='0'){const a2=a-0.00010695*a+0.000017464*b+0.0046017,b2=b-0.000046038*a-0.000083043*b+0.010040;a=a2;b=b2}
+    if(a>=20&&a<=46&&b>=122&&b<=154)return L.latLng(a,b);
+  }
   t=t.replace(/[，、　]/g,',');
   const m=t.match(/(-?\d{1,2}\.\d+)\s*[,\/ ]\s*(-?\d{2,3}\.\d+)/);
   if(!m)return null;
   const a=+m[1],b=+m[2];
   return a>=20&&a<=46&&b>=122&&b<=154?L.latLng(a,b):null;
 }
-document.getElementById('go').onclick=()=>{const ll=parseLL(document.getElementById('ll').value);
-  if(!ll){alert('位置を読み取れませんでした。「31.2435,130.7846」のように入れてください');return}setFire(ll)};
+// メールの1行目（例：建物火災発生）を火点の名前に使う。この画面の中だけで使い、どこにも保存・送信しない
+function fireTitle(t){const l=t.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);return l.length&&!/^https?:/.test(l[0])&&!/\d+\.\d+/.test(l[0])&&l[0].length<=20?l[0]:'火点'}
+document.getElementById('go').onclick=()=>{const t=document.getElementById('ll').value,ll=parseLL(t);
+  if(!ll){alert('位置を読み取れませんでした。地図のリンクが入っているか確かめてください');return}fireName=fireTitle(t);setFire(ll)};
 ['f-h','f-t'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{if(fire)setFire(fire.getLatLng())}));
 
 function selRow(id){tb.querySelectorAll('tr').forEach(r=>r.classList.toggle('sel',+r.dataset.id===id))}
