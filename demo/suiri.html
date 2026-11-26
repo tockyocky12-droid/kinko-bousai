@@ -58,6 +58,8 @@ tbody tr{cursor:pointer}
 .dist::before{display:none}
 .leaflet-container.picking{cursor:crosshair}
 .rank{display:inline-block;white-space:nowrap;line-height:20px;height:24px;padding:0 6px;border-radius:12px;background:#fff;color:#374151;font-size:13px;font-weight:700;border:2px solid #6b7280;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.rank .mk{margin-right:7px;padding-right:7px;border-right:1px solid rgba(255,255,255,.6)}
+.rank b{font-size:14px}.rank i{font-style:normal;font-weight:400;font-size:11.5px;margin-left:2px}
 .rank.on{color:#fff;border-color:#fff;transform:scale(1.15)}
 .arw{display:block;width:16px;height:16px;line-height:16px;text-align:center;color:#fff;font-size:11px;text-shadow:0 0 2px #9a3412,0 0 2px #9a3412}
 .goal{display:inline-block;white-space:nowrap;background:#f97316;color:#fff;font-size:13px;font-weight:700;padding:2px 8px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.35)}
@@ -259,6 +261,9 @@ pickBtn.onclick=()=>{document.getElementById('mapbox').scrollIntoView({behavior:
 }
 function tapMsg(t){const el=document.getElementById('maphint');el.textContent=t;el.classList.add('show');clearTimeout(tapMsg.t);
   tapMsg.t=setTimeout(()=>{el.textContent='地図のどこを押しても、そこに火点🔥を置きます';el.classList.remove('show')},3000)}
+const CIR='①②③④⑤⑥⑦⑧⑨⑩';
+// 地図の札用：数字と単位の間を少しあける（数字どうしがくっついて読み違えないように）
+const fmtL=m=>m<1000?`<b>${Math.round(m)}</b><i>m</i>`:`<b>${(m/1000).toFixed(2)}</b><i>km</i>`;
 const fmt=m=>m<1000?Math.round(m)+' m':(m/1000).toFixed(2)+' km';
 // ---- 道沿いの距離 ----
 // 国土地理院の道路中心線（ベクトルタイル z=16、GeoJSON）を読み、道をつないだ網の上で最短の道のりを計算する。
@@ -506,7 +511,7 @@ function drawRoutes(){
       if(on){
         // 選んだ水利だけ、距離つきの札を出す（線や印に重ならない所に置く）
         labs.push({ll:L.latLng(r.d.lat,r.d.lng),prio:0,onClick:()=>{},
-          html:`<span class="rank on" style="background:${K.col}">${K.mark}${i+1} ${fmt(r.road??r.m)}</span>`});
+          html:`<span class="rank on" style="background:${K.col}"><span class="mk">${K.mark}${CIR[i]}</span>${fmtL(r.road??r.m)}</span>`});
       }else{
         // ほかの候補は、印の右上に小さな番号だけ（押すとその候補に切り替え）
         L.marker([r.d.lat,r.d.lng],{zIndexOffset:650,icon:L.divIcon({className:'',html:`<span class="cno" style="background:${K.col}">${i+1}</span>`,iconSize:[18,18],iconAnchor:[-4,22]})})
@@ -529,7 +534,7 @@ function drawRoutes(){
   const near=document.getElementById('near');
   const li=(r,i,k)=>{const K=KIND[k],d=r.d,h=k==='消火栓',L0=r.road??r.m,on=i===shown[K.sel];
     const steps=r.road!=null?`<span class="steps">${k}から <b>${fmt(r.offSui)}</b> で道へ → 道を <b>${fmt(r.onRoad)}</b> → <b>${fmt(r.offFire)}</b> で🔥火点</span>`:'';
-    return `<li data-k="${k}" data-i="${i}" class="${on?'on':''}" style="${on?'border-color:'+K.col:''}"><span class="rk" style="${on?'color:'+K.col:''}">${K.mark}${i+1}</span><div><b>${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}</b>　${esc(d.name)}　${h?'口径'+d.dia+'mm':'容量'+d.cap+'㎥'}
+    return `<li data-k="${k}" data-i="${i}" class="${on?'on':''}" style="${on?'border-color:'+K.col:''}"><span class="rk" style="${on?'color:'+K.col:''}">${K.mark}${CIR[i]}</span><div><b>${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}</b>　${esc(d.name)}　${h?'口径'+d.dia+'mm':'容量'+d.cap+'㎥'}
       ${on?steps:''}<small class="note">${r.road!=null?`直線では ${fmt(r.m)}・`:''}ホース（1本20m）約${Math.ceil(L0/20)}本分</small></div></li>`};
   const sec=k=>{const arr=shown[KIND[k].key];
     return `<h3 class="kh" style="color:${KIND[k].col}">${k==='消火栓'?'● 消火栓（必ず確認）':'■ 防火水槽'}</h3>`+
