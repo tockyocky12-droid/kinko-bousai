@@ -95,6 +95,8 @@ table.src th{white-space:nowrap;color:var(--muted);font-weight:400;width:6.5em}
 #toast[hidden]{display:none}
 .wi-ic{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#fff;font-size:12px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45)}
 .wi-ic.h{background:#d92d20}.wi-ic.t{background:#1570ef;border-radius:5px}
+.wi-ic.out{background:#9ca3af!important;position:relative}
+.wi-ic.out::after{content:"";position:absolute;left:-3px;right:-3px;top:50%;height:3px;background:#111827;transform:rotate(-45deg);border-radius:2px}
 .ll .wi-ic{width:18px;height:18px;font-size:10px;vertical-align:-4px;margin-right:4px}
 .lg-row .wi-ic{width:16px;height:16px;font-size:9px;vertical-align:-3px;margin-right:3px;border-width:1.5px}
 .wpp{font-size:13.5px;line-height:1.55;min-width:200px}
@@ -111,7 +113,7 @@ table.src th{white-space:nowrap;color:var(--muted);font-weight:400;width:6.5em}
 </style>
 </head>
 <body>
-<div id="demoband">見本：消防水利の層を足したときのイメージです。消火栓・防火水槽の位置・数値は<b>すべて架空</b>です。</div>
+<div id="demoband">見本：消防水利の層を足したときのイメージです。消火栓・防火水槽の位置・数値は<b>すべて架空</b>です。 <a href="./" style="color:#fff">試作の説明へ</a></div>
 <header>
   <h1>きんこう防災ナビ<span class="tag" id="vtag">試作</span></h1>
   <div class="seg" role="group" aria-label="背景の地図">
@@ -294,27 +296,29 @@ map.on('zoomend',()=>drawLegend());
 applyHz();
 // ---- 消防水利の層（見本：架空データ） ----
 const DEMO=[
-  {id:1, kind:'消火栓',  name:'消火栓 第101号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2448, lng:130.7838, dia:75},
-  {id:2, kind:'消火栓',  name:'消火栓 第102号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2426, lng:130.7861, dia:75},
-  {id:3, kind:'消火栓',  name:'消火栓 第103号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2412, lng:130.7832, dia:100},
-  {id:4, kind:'消火栓',  name:'消火栓 第104号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2459, lng:130.7869, dia:75},
-  {id:5, kind:'消火栓',  name:'消火栓 第105号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2437, lng:130.7812, dia:150},
-  {id:6, kind:'消火栓',  name:'消火栓 第106号（架空）', addr:'錦江町城元 ○○番地付近', lat:31.2401, lng:130.7858, dia:75},
-  {id:7, kind:'防火水槽', name:'防火水槽 第201号（架空）', addr:'錦江町城元 ○○公民館付近', lat:31.2467, lng:130.7850, cap:40, note:'地下式'},
-  {id:8, kind:'防火水槽', name:'防火水槽 第202号（架空）', addr:'錦江町城元 ○○公園付近',   lat:31.2419, lng:130.7880, cap:100, note:'地下式・耐震性'},
-  {id:9, kind:'防火水槽', name:'防火水槽 第203号（架空）', addr:'錦江町城元 ○○付近',       lat:31.2443, lng:130.7795, cap:40, note:'地上式'},
-  {id:10,kind:'防火水槽', name:'防火水槽 第204号（架空）', addr:'錦江町城元 ○○付近',       lat:31.2395, lng:130.7820, cap:60, note:'地下式'}
+  // 架空の水利（説明用）。実在のバス停の位置（道路の上）を手がかりに、道路沿いのありそうな場所に置いた。実際の消火栓・防火水槽の位置ではない
+  {id:1, kind:'消火栓',  name:'消火栓 第101号（架空）', addr:'錦江町城元 役場入口付近',       lat:31.24357, lng:130.78466, dia:75},
+  {id:2, kind:'消火栓',  name:'消火栓 第102号（架空）', addr:'錦江町城元 老人福祉センター付近', lat:31.24242, lng:130.78485, dia:75},
+  {id:3, kind:'消火栓',  name:'消火栓 第103号（架空）', addr:'錦江町城元 役場前付近',         lat:31.24357, lng:130.78690, dia:100},
+  {id:4, kind:'消火栓',  name:'消火栓 第104号（架空）', addr:'錦江町城元 大根占バス停付近',   lat:31.24549, lng:130.78678, dia:75},
+  {id:5, kind:'消火栓',  name:'消火栓 第105号（架空）', addr:'錦江町城元 栄町付近',           lat:31.24576, lng:130.78875, dia:75},
+  {id:6, kind:'消火栓',  name:'消火栓 第106号（架空）', addr:'錦江町城元 鳥井戸付近',         lat:31.24065, lng:130.78150, dia:150},
+  {id:7, kind:'消火栓',  name:'消火栓 第107号（架空）', addr:'錦江町城元 城元入口付近',       lat:31.24184, lng:130.79119, dia:75, out:'工事のため使用不可（使えない水利の表示例）'},
+  {id:8, kind:'防火水槽', name:'防火水槽 第201号（架空）', addr:'錦江町城元 ふれあいセンター付近', lat:31.24572, lng:130.78708, cap:40, note:'地下式'},
+  {id:9, kind:'防火水槽', name:'防火水槽 第202号（架空）', addr:'錦江町城元 土木事務所付近',   lat:31.23860, lng:130.78153, cap:100, note:'地下式・耐震性'},
+  {id:10,kind:'防火水槽', name:'防火水槽 第203号（架空）', addr:'錦江町城元 塩屋付近',         lat:31.24830, lng:130.78926, cap:40, note:'地上式'},
+  {id:11,kind:'防火水槽', name:'防火水槽 第204号（架空）', addr:'錦江町城元 木場付近',         lat:31.23917, lng:130.78015, cap:60, note:'地下式'}
 ];
 const WATER={id:'suiri',name:'消防水利（消火栓・防火水槽）',sub:'見本のため架空の位置です。拡大すると表示します'};
 const waterLayer=L.layerGroup();let waterOn=LS.get('water')!=='0';
 DEMO.forEach(d=>{
   const h=d.kind==='消火栓';
-  const m=L.marker([d.lat,d.lng],{title:d.name,icon:L.divIcon({className:'',html:`<span class="wi-ic ${h?'h':'t'}">${h?'栓':'水'}</span>`,iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-10]})});
+  const m=L.marker([d.lat,d.lng],{title:d.name,icon:L.divIcon({className:'',html:`<span class="wi-ic ${h?'h':'t'}${d.out?' out':''}">${h?'栓':'水'}</span>`,iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-10]})});
   m.bindPopup(`<div class="wpp"><div class="demo">見本・架空データ</div><div class="nm">${d.name}</div><dl>
     <dt>種別</dt><dd>${d.kind}</dd>${h?`<dt>口径</dt><dd>${d.dia} mm</dd>`:`<dt>容量</dt><dd>${d.cap} ㎥</dd>`}
     <dt>所在地</dt><dd>${d.addr}</dd>${d.note?`<dt>備考</dt><dd>${d.note}</dd>`:''}</dl>
-    <div class="care">${h?'消火栓のまわりは駐車しないでください。消防の活動以外で使わないでください。':'防火水槽のまわりは駐車しないでください。ふたを開けたり、物を置いたりしないでください。'}</div>
-    <a class="go" href="suiri.html?v=19" target="_blank" rel="noopener">火点からの道順を見る（消防水利マップ）</a></div>`,{autoPanPaddingTopLeft:[56,16]});
+    ${d.out?`<div class="care" style="background:#f3f4f6;color:#111827">使用不可：${d.out}</div>`:''}<div class="care">${h?'消火栓のまわりは駐車しないでください。消防の活動以外で使わないでください。':'防火水槽のまわりは駐車しないでください。ふたを開けたり、物を置いたりしないでください。'}</div>
+    <a class="go" href="suiri.html?v=20" target="_blank" rel="noopener">火点からの道順を見る（消防水利マップ）</a></div>`,{autoPanPaddingTopLeft:[56,16]});
   waterLayer.addLayer(m);
 });
 function applyWater(){

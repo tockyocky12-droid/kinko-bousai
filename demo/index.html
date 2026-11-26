@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>消防水利を地図で見る 試作の説明（架空データ）</title>
+<style>
+:root{--bg:#f2f4f7;--panel:#fff;--fg:#17212b;--muted:#5b6672;--line:#d6dbe1;--accent:#1e3a5f;--demo:#b42318;
+  --f:"BIZ UDGothic","Hiragino Sans","Yu Gothic UI","Yu Gothic","Noto Sans JP",sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f);font-size:15px;line-height:1.7}
+#demo{background:var(--demo);color:#fff;padding:10px 14px;font-size:14px;font-weight:700;text-align:center}
+#demo small{display:block;font-weight:400;font-size:12.5px}
+main{max-width:720px;margin:0 auto;padding:14px 14px 30px}
+h1{font-size:20px;margin:6px 0 2px;line-height:1.4}
+.lead{color:var(--muted);margin:0 0 14px;font-size:14px}
+h2{font-size:16px;margin:22px 0 8px;padding-left:9px;border-left:4px solid var(--accent)}
+.card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0;color:inherit;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.card b{display:block;font-size:16px;color:var(--accent)}
+.card .who{display:inline-block;font-size:12px;border-radius:999px;padding:0 8px;margin:2px 0 4px;background:#e8eef5;color:var(--accent)}
+.card span.d{display:block;font-size:13.5px;color:var(--fg)}
+.card .open{display:block;margin-top:8px;text-align:center;background:var(--accent);color:#fff;border-radius:8px;padding:8px;font-weight:700}
+ul,ol{margin:4px 0;padding-left:1.3em}
+li{margin:3px 0}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.warn{background:#fff4d6;border:1px solid #f1d58a;color:#4a3000;border-radius:10px;padding:9px 12px;font-size:14px;margin-top:12px}
+table{border-collapse:collapse;width:100%;background:var(--panel);font-size:14px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#eef2f6;white-space:nowrap}
+footer{max-width:720px;margin:0 auto;padding:0 14px 24px;color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<div id="demo">説明用の試作です。地図の消火栓・防火水槽は、すべて架空のものです。
+<small>実際の位置・番号・水量ではありません。町・消防の正式な情報ではありません。</small></div>
+<main>
+<h1>消防水利を地図で見る（試作）</h1>
+<p class="lead">消火栓・防火水槽の場所を、住民も団員もスマホの地図で確かめられるようにする案です。2つの見本を用意しました。</p>
+
+<h2>見本を開く</h2>
+<a class="card" href="layer.html">
+  <b>① 防災ナビに「消防水利」を重ねる</b>
+  <span class="who">住民みんな向け</span>
+  <span class="d">ふだん使う「きんこう防災ナビ」に、消火栓・防火水槽の印を足した形。避難所や土砂災害の区域と一緒に、家の近くの水利を確かめられます。</span>
+  <span class="open">開く</span>
+</a>
+<a class="card" href="suiri.html">
+  <b>② 錦江町消防水利マップ（仮）</b>
+  <span class="who">出動する団員向け</span>
+  <span class="d">出動メールを貼るか、地図を押して火点を置くと、近い消火栓と防火水槽までの<b style="display:inline;font-size:inherit;color:inherit">道沿いの距離と道順</b>を出します。第2候補への切り替え、通れない道（🚧）をよけた道順も試せます。</span>
+  <span class="open">開く</span>
+</a>
+
+<h2>試すときのポイント</h2>
+<ol>
+  <li>②で、役場の近くの地図を押す → 赤（消火栓）と青（防火水槽）の道順が出ます。</li>
+  <li>下の ◀▶ で第2候補に切り替え（交通の多い道路を渡らない、など現場の判断用）。</li>
+  <li>「🚧 この道は通らない」を押してから道を押すと、その道をよけて計算し直します。</li>
+  <li>灰色に斜線の消火栓は「使用不可」の例です。候補から外れます。</li>
+</ol>
+
+<h2>見本で架空にしているもの</h2>
+<div class="box"><ul>
+  <li>消火栓7か所・防火水槽4か所の<b>位置・番号・口径・容量</b>（役場周辺の道路沿いに仮に置いたもの）</li>
+  <li>「使用不可」の表示（表示の例として1か所）</li>
+  <li>道のデータ・背景の地図は国土地理院のものを使っています（実在）</li>
+</ul></div>
+
+<h2>本番にするために、町・消防にお願いしたいこと</h2>
+<table>
+  <tr><th>データ</th><td>消火栓・防火水槽の位置と、番号・口径・容量など（台帳・GISから。エクセル等で可）。使用不可の情報があれば、その更新のしかた。</td></tr>
+  <tr><th>公開の範囲</th><td>①住民向けに一般公開してよいか、②団員向けだけにするか。載せてよい項目（位置だけ／口径・容量まで）。</td></tr>
+  <tr><th>担当</th><td>データの持ち主（水道・消防・総務課）と、更新を誰が・いつ行うか。</td></tr>
+  <tr><th>出動メール</th><td>メールの文面の形（位置の書き方）が今後も同じか。</td></tr>
+</table>
+<p class="warn">⚠ 実際の水利の位置は、防災担当・消防の確認と許可が出るまで、どこにも公開しません。避難行動要支援者名簿など、個人名の入ったデータは扱いません。</p>
+
+<h2>スマホでの使いやすさ</h2>
+<ul>
+  <li>地図は必要な所だけ読み込み、通信量（ギガ）を抑えています。</li>
+  <li>メールの内容はスマホの中だけで使い、どこにも送信・保存しません。</li>
+</ul>
+</main>
+<footer>
+作成：錦江町役場 産業振興課（林務担当）の試作。町の公式の防災情報ではありません。避難情報は、町の発表・防災行政無線で確認してください。<br>
+地図・道路：国土地理院（地理院タイル、道路中心線ベクトルタイル）
+</footer>
+</body>
+</html>
