@@ -71,6 +71,9 @@ tbody tr{cursor:pointer}
 .labw .rank{position:absolute;left:10px;top:-12px;cursor:pointer}
 .labw .lead{display:none;position:absolute;left:0;top:-1px;height:2px;background:#fff;box-shadow:0 0 0 1px rgba(23,33,43,.8);transform-origin:0 50%;pointer-events:none}
 .routing .leaflet-tooltip.num{display:none}
+.cno{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;color:#fff;font-size:11px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45);cursor:pointer}
+#mapbox.routing-on #maphint{display:none}
+#mapbox.routing-on #maphint.show{display:block}
 .basesel{display:flex;border-radius:8px;overflow:hidden;box-shadow:0 1px 5px rgba(0,0,0,.35);background:#fff}
 .basesel button{font:inherit;font-size:13px;border:0;background:#fff;color:#17212b;padding:7px 10px;cursor:pointer}
 .basesel button+button{border-left:1px solid #d6dbe1}
@@ -101,7 +104,7 @@ tbody tr{cursor:pointer}
 <small>実際の消火栓・防火水槽の位置ではありません。町の正式な地図ではありません。</small></div>
 <header>
   <h1>錦江町消防水利マップ（仮）<span style="font-size:12px;font-weight:400;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 7px;margin-left:6px;vertical-align:3px">試作</span></h1>
-  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 18）</b></p>
+  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 19）</b></p>
   <p><a href="#fire">▼ 出動メールを貼り付けて、近い水利と距離を出す</a></p>
 </header>
 <div id="mapbox"><div id="map" aria-label="地図"></div><div id="swpanel" hidden></div><div id="maphint">地図のどこを押しても、そこに火点🔥を置きます</div></div>
@@ -249,8 +252,8 @@ pickBtn.onclick=()=>{document.getElementById('mapbox').scrollIntoView({behavior:
   };
   box.addEventListener('pointerup',up,true);box.addEventListener('pointercancel',up,true);
 }
-function tapMsg(t){const el=document.getElementById('maphint');el.textContent=t;clearTimeout(tapMsg.t);
-  tapMsg.t=setTimeout(()=>el.textContent='地図のどこを押しても、そこに火点🔥を置きます',4000)}
+function tapMsg(t){const el=document.getElementById('maphint');el.textContent=t;el.classList.add('show');clearTimeout(tapMsg.t);
+  tapMsg.t=setTimeout(()=>{el.textContent='地図のどこを押しても、そこに火点🔥を置きます';el.classList.remove('show')},3000)}
 const fmt=m=>m<1000?Math.round(m)+' m':(m/1000).toFixed(2)+' km';
 // ---- 道沿いの距離 ----
 // 国土地理院の道路中心線（ベクトルタイル z=16、GeoJSON）を読み、道をつないだ網の上で最短の道のりを計算する。
@@ -495,11 +498,15 @@ function drawRoutes(){
   ['消火栓','防火水槽'].forEach(k=>{const K=KIND[k],arr=shown[K.key];
     arr.forEach((r,i)=>{
       const on=i===shown[K.sel];
-      if(!on)L.polyline(routePts(r,ll),{color:'#6b7280',weight:3,opacity:.4,interactive:false}).addTo(fireLines);
-      // 札：選んだものは「栓1 道沿い 62m」、ほかは「栓2」だけ
-      labs.push({ll:L.latLng(r.d.lat,r.d.lng),prio:on?0:1,onClick:()=>{shown[K.sel]=i;drawRoutes()},
-        html:on?`<span class="rank on" style="background:${K.col}">${K.mark}${i+1} ${fmt(r.road??r.m)}</span>`
-               :`<span class="rank">${K.mark}${i+1}</span>`});
+      if(on){
+        // 選んだ水利だけ、距離つきの札を出す（線や印に重ならない所に置く）
+        labs.push({ll:L.latLng(r.d.lat,r.d.lng),prio:0,onClick:()=>{},
+          html:`<span class="rank on" style="background:${K.col}">${K.mark}${i+1} ${fmt(r.road??r.m)}</span>`});
+      }else{
+        // ほかの候補は、印の右上に小さな番号だけ（押すとその候補に切り替え）
+        L.marker([r.d.lat,r.d.lng],{zIndexOffset:650,icon:L.divIcon({className:'',html:`<span class="cno" style="background:${K.col}">${i+1}</span>`,iconSize:[18,18],iconAnchor:[-4,22]})})
+          .on('click',()=>{shown[K.sel]=i;drawRoutes()}).addTo(fireLines);
+      }
     })});
   // 選んだ道順：防火水槽を先に、消火栓をその上に描く（重なる道では消火栓の赤が見える）
   drawSwitch(); // 先に下の帯を出す（札や地図の合わせ方で、帯の高さを使う）
@@ -522,7 +529,7 @@ function drawRoutes(){
   const sec=k=>{const arr=shown[KIND[k].key];
     return `<h3 class="kh" style="color:${KIND[k].col}">${k==='消火栓'?'● 消火栓（必ず確認）':'■ 防火水槽'}</h3>`+
       (arr.length?`<ol class="routes">${arr.map((r,i)=>li(r,i,k)).join('')}</ol>`:`<p class="note">近くに${k}がありません。</p>`)};
-  near.innerHTML='<p class="note">一番近い<b>消火栓（赤）</b>と<b>防火水槽（青）</b>から火点までの道順を、同時に表示しています。矢印は水利→火点の向き。地図の下の「◀ ▶」か、下の一覧・地図の札を押すと、第2候補以降に切り替わります（交通の多い道路を横断しない水利を選ぶときなど）。</p>'
+  near.innerHTML='<p class="note">一番近い<b>消火栓（赤）</b>と<b>防火水槽（青）</b>から火点までの道順を、同時に表示しています。矢印は水利→火点の向き。地図の下の「◀ ▶」か、下の一覧・地図の小さな番号を押すと、第2候補以降に切り替わります（交通の多い道路を横断しない水利を選ぶときなど）。</p>'
     +sec('消火栓')+sec('防火水槽')+(roadOK
     ?(farNote(res))+'<p class="note">距離は、国土地理院の道路中心線に沿って計算した<b>道沿いの距離</b>です。火点や水利が道から離れているときは、道までを直線（点線）で足しています。通れない道、私道・農道、建物の間を通す近道などは考えていないので、目安として使ってください。</p>'
     :'<p class="note"><b>道の情報を読み込めなかったため、直線距離</b>を表示しています。実際は道や建物を回るので、ホースはこれより長く必要です。</p>');
