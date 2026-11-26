@@ -379,7 +379,6 @@ async function setFire(ll){
   const seq=++fireSeq;
   if(fire)fire.remove();fireLines.clearLayers();
   fire=L.marker(ll,{draggable:true,zIndexOffset:1000,icon:L.divIcon({className:'',html:'<span class="fireic">🔥</span>',iconSize:[28,28],iconAnchor:[14,22]})}).addTo(map);
-  fire.bindTooltip(esc(fireName)+'（ずらせます）',{direction:'top',offset:[0,-20]});
   fire.on('dragend',()=>setFire(fire.getLatLng()));
   const near=document.getElementById('near');
   // 消火栓（必ず）と防火水槽の両方を、種類ごとに直線で近い所から候補にする（印の表示・非表示に関係なく計算する）
