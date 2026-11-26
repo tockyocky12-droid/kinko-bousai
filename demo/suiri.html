@@ -184,7 +184,7 @@ const DEMO=[
 ];
 
 // clickTolerance：指で押したときの少しのずれ（12ピクセルまで）は「押した」とみなす
-const map=L.map('map',{maxZoom:18,minZoom:12,doubleClickZoom:false,clickTolerance:12});
+const map=L.map('map',{maxZoom:18,minZoom:12,doubleClickZoom:false,clickTolerance:12,zoomSnap:0.25,zoomDelta:1});
 map.attributionControl.setPrefix(false);
 // 背景の地図：淡色・標準・写真（地理院タイル）。写真は空中写真（全国最新写真・シームレス）
 const gsiAttr='<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>';
@@ -274,7 +274,7 @@ pickBtn.onclick=()=>{document.getElementById('mapbox').scrollIntoView({behavior:
 function tapMsg(t){const el=document.getElementById('maphint');el.textContent=t;el.classList.add('show');clearTimeout(tapMsg.t);
   tapMsg.t=setTimeout(()=>{el.textContent='地図のどこを押しても、そこに火点🔥を置きます';el.classList.remove('show')},3000)}
 // アプリの版（sw-suiri.js の VER と必ず同じにする。更新のたびに上げる）
-const APP_VER='s2';document.getElementById('ver').textContent=APP_VER;
+const APP_VER='s3';document.getElementById('ver').textContent=APP_VER;
 if('serviceWorker' in navigator&&location.protocol!=='file:')addEventListener('load',()=>navigator.serviceWorker.register('sw-suiri.js').catch(()=>{}));
 const CIR='①②③④⑤⑥⑦⑧⑨⑩';
 // 地図の札用：数字と単位の間を少しあける（数字どうしがくっついて読み違えないように）
@@ -543,9 +543,8 @@ function drawRoutes(noFit){
   if(t)pts.push(...drawOne(t,ll,KIND['防火水槽'].col,KIND['防火水槽'].dark));
   if(h)pts.push(...drawOne(h,ll,KIND['消火栓'].col,KIND['消火栓'].dark));
   if(pts.length){const rb=L.latLngBounds(pts);const ph=document.getElementById('swpanel').offsetHeight;
-    // 下の帯に隠れない範囲に、道順が入っていなければ地図を合わせる
-    const sz=map.getSize(),tl=map.containerPointToLatLng([10,10]),br=map.containerPointToLatLng([sz.x-10,sz.y-ph-16]);
-    if(!noFit&&!L.latLngBounds(tl,br).contains(rb))map.fitBounds(rb,{paddingTopLeft:[50,50],paddingBottomRight:[50,ph+40],maxZoom:18})}
+    // 選んでいる消火栓・防火水槽と火点が、ぎりぎり入る大きさに地図を合わせる（候補を切り替えるたびに合わせ直す）
+    if(!noFit)map.fitBounds(rb,{paddingTopLeft:[46,56],paddingBottomRight:[46,ph+30],maxZoom:18,animate:false})}
   makeLabels(labs);
   map.getContainer().classList.add('routing'); // 道順を出している間は、水利の通し番号（1〜10）を隠す
   // 一覧

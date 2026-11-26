@@ -1,6 +1,6 @@
 // 錦江町消防水利マップ（仮）：ホーム画面から開けて、電波が弱くても開けるようにする仕組み（きんこう防災ナビの sw.js を元にしている）
 // 更新のたびに VER を上げる（suiri.html の APP_VER と必ず同じにする）
-const VER='s2';
+const VER='s3';
 const PFX='suiri';                 // 防災ナビ（bousai-）・森林ナビの保存分と分けるための名前の頭
 const SHELL=PFX+'-shell-'+VER;
 const STATIC=PFX+'-static-v1';     // Leaflet（版番号つきのフォルダなので、更新しても消さない）
