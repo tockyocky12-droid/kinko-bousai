@@ -18,6 +18,7 @@ header h1{font-size:17px;margin:0}
 header p{margin:2px 0 0;font-size:13px;color:var(--muted)}
 #mapbox{position:relative;height:56vh;min-height:320px}
 #map{position:absolute;inset:0}
+#maphint{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;z-index:900;background:rgba(23,33,43,.85);color:#fff;font-size:13px;padding:5px 12px;border-radius:999px;pointer-events:none;white-space:nowrap}
 /* 地図の上に「架空」の透かし */
 #mapbox::after{content:"説明用・架空データ";position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;z-index:450;
   font-size:30px;font-weight:700;color:rgba(180,35,24,.16);transform:rotate(-18deg)}
@@ -69,10 +70,10 @@ tbody tr{cursor:pointer}
 <small>実際の消火栓・防火水槽の位置ではありません。きんこう防災ナビには載せていません。</small></div>
 <header>
   <h1>消火栓・防火水槽の表示イメージ（きんこう防災ナビ）</h1>
-  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 4）</b></p>
+  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 5）</b></p>
   <p><a href="#fire">▼ 出動メールを貼り付けて、近い水利と距離を出す</a></p>
 </header>
-<div id="mapbox"><div id="map" aria-label="地図"></div></div>
+<div id="mapbox"><div id="map" aria-label="地図"></div><div id="maphint">地図を押すと、そこに火点🔥を置きます</div></div>
 <div class="filters">
   <label><input type="checkbox" id="f-h" checked><span class="ic h">栓</span>消火栓</label>
   <label><input type="checkbox" id="f-t" checked><span class="ic t">水</span>防火水槽</label>
@@ -80,7 +81,7 @@ tbody tr{cursor:pointer}
 <section class="fire" id="fire">
   <h2>火点から近い消火栓・防火水槽</h2>
   <div class="row">
-    <button class="btn pri" id="pick" type="button">地図を押して火点を置く</button>
+    <button class="btn pri" id="pick" type="button">地図に火点を置く</button>
     <button class="btn" id="here" type="button">現在地を火点に</button>
     <button class="btn" id="clear" type="button">火点を消す</button>
   </div>
@@ -169,10 +170,11 @@ DEMO.forEach(d=>{
 // ---- 火点から近い水利 ----
 let fireName='火点',fire=null,fireLines=L.layerGroup().addTo(map),picking=false;
 const pickBtn=document.getElementById('pick');
-function setPicking(on){picking=on;pickBtn.classList.toggle('on',on);pickBtn.textContent=on?'地図を押してください…':'地図を押して火点を置く';
+function setPicking(on){picking=on;pickBtn.classList.toggle('on',on);pickBtn.textContent=on?'地図の火点の場所を押してください':'地図に火点を置く';
   map.getContainer().classList.toggle('picking',on)}
-pickBtn.onclick=()=>{fireName='火点';setPicking(!picking)};
-map.on('click',e=>{if(picking){setFire(e.latlng);setPicking(false)}});
+// 地図のあいた所を押すと、そのまま火点を置く（ボタンは地図の場所へ戻るためのもの）
+pickBtn.onclick=()=>{document.getElementById('mapbox').scrollIntoView({behavior:'smooth',block:'start'});setPicking(true)};
+map.on('click',e=>{fireName='火点';setFire(e.latlng);setPicking(false)});
 const fmt=m=>m<1000?Math.round(m)+' m':(m/1000).toFixed(2)+' km';
 // ---- 道沿いの距離 ----
 // 国土地理院の道路中心線（ベクトルタイル z=16、GeoJSON）を読み、道をつないだ網の上で最短の道のりを計算する。
