@@ -38,6 +38,21 @@ tr.sel td{background:#fff6d6}
 tbody tr{cursor:pointer}
 .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
 .box ul{margin:4px 0;padding-left:1.3em}
+.fire{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 14px}
+.fire h2{margin:0 0 6px}
+.fire .row{display:flex;gap:6px;flex-wrap:wrap}
+.fire input[type=text]{flex:1;min-width:200px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px}
+.btn{font:inherit;font-size:14px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);cursor:pointer}
+.btn.pri{background:#b42318;border-color:#b42318;color:#fff;font-weight:700}
+.btn.on{outline:3px solid #f59e0b}
+#near{margin-top:8px}
+#near ol{margin:4px 0;padding-left:1.4em}
+#near li{padding:3px 0;cursor:pointer}
+#near b{font-variant-numeric:tabular-nums}
+.fireic{font-size:26px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+.dist{background:rgba(255,255,255,.92);border:0;box-shadow:0 1px 3px rgba(0,0,0,.3);font-size:12px;font-weight:700;padding:1px 5px;border-radius:4px}
+.dist::before{display:none}
+.leaflet-container.picking{cursor:crosshair}
 .leaflet-container{font-family:var(--f)}
 .leaflet-popup-content{margin:10px 12px;font-size:13.5px;line-height:1.55;min-width:190px}
 .pp-h{font-size:15.5px;font-weight:700;margin-bottom:4px}
@@ -61,6 +76,19 @@ tbody tr{cursor:pointer}
   <label><input type="checkbox" id="f-h" checked><span class="ic h">栓</span>消火栓</label>
   <label><input type="checkbox" id="f-t" checked><span class="ic t">水</span>防火水槽</label>
 </div>
+<section class="fire">
+  <h2>火点から近い消火栓・防火水槽</h2>
+  <div class="row">
+    <button class="btn pri" id="pick" type="button">地図を押して火点を置く</button>
+    <button class="btn" id="here" type="button">現在地を火点に</button>
+    <button class="btn" id="clear" type="button">火点を消す</button>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <input type="text" id="ll" placeholder="緯度,経度 または 地図のURLを貼り付け" aria-label="火点の位置">
+    <button class="btn" id="go" type="button">この位置を火点に</button>
+  </div>
+  <div id="near"><p class="note">火点を置くと、近い順に5か所と直線距離を表示します。</p></div>
+</section>
 <main>
   <p class="note">地図の印を押すと、番号・規模などが出ます。下の表の行を押すと、地図がその場所に動きます。</p>
 
@@ -137,6 +165,50 @@ DEMO.forEach(d=>{
     map.setView([d.lat,d.lng],17);marks[d.id].openPopup();document.getElementById('mapbox').scrollIntoView({behavior:'smooth'})};
   tb.append(tr);
 });
+// ---- 火点から近い水利 ----
+let fire=null,fireLines=L.layerGroup().addTo(map),picking=false;
+const pickBtn=document.getElementById('pick');
+function setPicking(on){picking=on;pickBtn.classList.toggle('on',on);pickBtn.textContent=on?'地図を押してください…':'地図を押して火点を置く';
+  map.getContainer().classList.toggle('picking',on)}
+pickBtn.onclick=()=>setPicking(!picking);
+map.on('click',e=>{if(picking){setFire(e.latlng);setPicking(false)}});
+const fmt=m=>m<1000?Math.round(m)+' m':(m/1000).toFixed(2)+' km';
+function setFire(ll){
+  if(fire)fire.remove();fireLines.clearLayers();
+  fire=L.marker(ll,{draggable:true,zIndexOffset:1000,icon:L.divIcon({className:'',html:'<span class="fireic">🔥</span>',iconSize:[28,28],iconAnchor:[14,22]})}).addTo(map);
+  fire.bindTooltip('火点（ずらせます）',{direction:'top',offset:[0,-20]});
+  fire.on('dragend',()=>setFire(fire.getLatLng()));
+  const vis=DEMO.filter(d=>map.hasLayer(groups[d.kind]));
+  const list=vis.map(d=>({d,m:map.distance(ll,[d.lat,d.lng])})).sort((a,b)=>a.m-b.m).slice(0,5);
+  list.forEach(({d,m},i)=>{
+    const col=d.kind==='消火栓'?'#d92d20':'#1570ef';
+    L.polyline([ll,[d.lat,d.lng]],{color:col,weight:i===0?4:2,dashArray:i===0?null:'6 6',opacity:.9}).addTo(fireLines)
+      .bindTooltip(fmt(m),{permanent:i<3,direction:'center',className:'dist'});
+  });
+  document.getElementById('near').innerHTML=list.length?`<ol>${list.map(({d,m})=>`<li data-id="${d.id}"><b>${fmt(m)}</b>　<span class="ic ${d.kind==='消火栓'?'h':'t'}" style="width:18px;height:18px;font-size:10px">${d.kind==='消火栓'?'栓':'水'}</span> ${esc(d.name)}　${d.kind==='消火栓'?'口径'+d.dia+'mm':'容量'+d.cap+'㎥'}<br><small class="note">ホース（1本20m）を真っすぐ延ばして約${Math.ceil(m/20)}本分</small></li>`).join('')}</ol>
+    <p class="note">距離は地図上の<b>直線距離</b>です。実際は道や建物を回るので、ホースはこれより長く必要です。</p>`
+    :'<p class="note">表示中の水利がありません。上の「消火栓」「防火水槽」に印を付けてください。</p>';
+  document.querySelectorAll('#near li').forEach(li=>li.onclick=()=>{const d=DEMO.find(x=>x.id===+li.dataset.id);marks[d.id].openPopup()});
+  map.fitBounds(L.latLngBounds([ll,...list.map(({d})=>[d.lat,d.lng])]),{padding:[40,40],maxZoom:18});
+}
+document.getElementById('clear').onclick=()=>{if(fire)fire.remove();fire=null;fireLines.clearLayers();
+  document.getElementById('near').innerHTML='<p class="note">火点を置くと、近い順に5か所と直線距離を表示します。</p>'};
+document.getElementById('here').onclick=()=>{
+  if(!navigator.geolocation){alert('この端末では現在地が使えません');return}
+  navigator.geolocation.getCurrentPosition(p=>setFire(L.latLng(p.coords.latitude,p.coords.longitude)),
+    ()=>alert('現在地を取得できませんでした'),{enableHighAccuracy:true,timeout:20000})};
+// 「31.24,130.78」や、地図のURL（@31.24,130.78 / q=31.24,130.78 / #18/31.24/130.78 など）から位置を読む
+function parseLL(t){
+  t=t.replace(/[，、　]/g,',');
+  const m=t.match(/(-?\d{1,2}\.\d+)\s*[,\/ ]\s*(-?\d{2,3}\.\d+)/);
+  if(!m)return null;
+  const a=+m[1],b=+m[2];
+  return a>=20&&a<=46&&b>=122&&b<=154?L.latLng(a,b):null;
+}
+document.getElementById('go').onclick=()=>{const ll=parseLL(document.getElementById('ll').value);
+  if(!ll){alert('位置を読み取れませんでした。「31.2435,130.7846」のように入れてください');return}setFire(ll)};
+['f-h','f-t'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{if(fire)setFire(fire.getLatLng())}));
+
 function selRow(id){tb.querySelectorAll('tr').forEach(r=>r.classList.toggle('sel',+r.dataset.id===id))}
 </script>
 </body>
