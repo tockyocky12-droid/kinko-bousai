@@ -82,7 +82,7 @@ tbody tr{cursor:pointer}
 <small>実際の消火栓・防火水槽の位置ではありません。きんこう防災ナビには載せていません。</small></div>
 <header>
   <h1>消火栓・防火水槽の表示イメージ（きんこう防災ナビ）</h1>
-  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 10）</b></p>
+  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 11）</b></p>
   <p><a href="#fire">▼ 出動メールを貼り付けて、近い水利と距離を出す</a></p>
 </header>
 <div id="mapbox"><div id="map" aria-label="地図"></div><div id="maphint">地図のどこを押しても、そこに火点🔥を置きます</div></div>
@@ -366,7 +366,8 @@ function drawRoutes(sel){
     L.polyline(all,{color:'#fff',weight:8,opacity:.9,interactive:false}).addTo(fireLines);
     L.polyline(all,{color:ROUTE,weight:4,dashArray:'2 7',interactive:false}).addTo(fireLines);
   }
-  arrowsAlong(all,45).forEach(a=>L.marker(a.ll,{interactive:false,icon:L.divIcon({className:'',
+  // 矢印は水利から火点へ（水が流れる向き・ホースを延ばす向き）
+  arrowsAlong([...all].reverse(),45).forEach(a=>L.marker(a.ll,{interactive:false,icon:L.divIcon({className:'',
     html:`<span class="arw" style="transform:rotate(${a.ang}deg)">➤</span>`,iconSize:[16,16],iconAnchor:[8,8]})}).addTo(fireLines));
   // 行き先に距離の札
   L.marker([r.d.lat,r.d.lng],{interactive:false,zIndexOffset:600,icon:L.divIcon({className:'',
@@ -376,10 +377,10 @@ function drawRoutes(sel){
   // 一覧
   const near=document.getElementById('near');
   const li=(r,i)=>{const d=r.d,h=d.kind==='消火栓',L0=r.road??r.m;
-    const steps=r.road!=null?`<span class="steps">🔥火点 → <b>${fmt(r.offFire)}</b> 歩いて道へ → 道を <b>${fmt(r.onRoad)}</b> → <b>${fmt(r.offSui)}</b> で${h?'消火栓':'防火水槽'}</span>`:'';
+    const steps=r.road!=null?`<span class="steps">${h?'消火栓':'防火水槽'}から <b>${fmt(r.offSui)}</b> で道へ → 道を <b>${fmt(r.onRoad)}</b> → <b>${fmt(r.offFire)}</b> で🔥火点</span>`:'';
     return `<li data-i="${i}" class="${i===sel?'on':''}"><span class="rk">${RANKS[i]}</span><div><b>${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}</b>　<span class="ic ${h?'h':'t'}" style="width:18px;height:18px;font-size:10px">${h?'栓':'水'}</span> ${esc(d.name)}　${h?'口径'+d.dia+'mm':'容量'+d.cap+'㎥'}
       ${i===sel?steps:''}<small class="note">${r.road!=null?`直線では ${fmt(r.m)}・`:''}ホース（1本20m）約${Math.ceil(L0/20)}本分</small></div></li>`};
-  near.innerHTML='<p class="note">番号を押すと、その水利までの道順を地図に出します（橙の線と矢印）。</p>'+(list.length?`<ol class="routes">${list.map(li).join('')}</ol>`:'')+(roadOK
+  near.innerHTML='<p class="note">番号を押すと、その水利から火点までの道順を地図に出します（橙の線。矢印は水利→火点の向き）。</p>'+(list.length?`<ol class="routes">${list.map(li).join('')}</ol>`:'')+(roadOK
     ?(farNote(res))+'<p class="note">距離は、国土地理院の道路中心線に沿って計算した<b>道沿いの距離</b>です。火点や水利が道から離れているときは、道までを直線（点線）で足しています。通れない道、私道・農道、建物の間を通す近道などは考えていないので、目安として使ってください。</p>'
     :'<p class="note"><b>道の情報を読み込めなかったため、直線距離</b>を表示しています。実際は道や建物を回るので、ホースはこれより長く必要です。</p>');
   near.querySelectorAll('li').forEach(el=>el.onclick=()=>{drawRoutes(+el.dataset.i);document.getElementById('mapbox').scrollIntoView({behavior:'smooth',block:'start'})});
