@@ -54,14 +54,15 @@ tbody tr{cursor:pointer}
 .dist{background:rgba(255,255,255,.92);border:0;box-shadow:0 1px 3px rgba(0,0,0,.3);font-size:12px;font-weight:700;padding:1px 5px;border-radius:4px}
 .dist::before{display:none}
 .leaflet-container.picking{cursor:crosshair}
-.rank{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#fff;color:#374151;font-size:15px;font-weight:700;border:2px solid #6b7280;box-shadow:0 1px 3px rgba(0,0,0,.35)}
-.rank.on{background:#f97316;color:#fff;border-color:#fff;transform:scale(1.15)}
+.rank{display:inline-block;white-space:nowrap;line-height:20px;height:24px;padding:0 6px;border-radius:12px;background:#fff;color:#374151;font-size:13px;font-weight:700;border:2px solid #6b7280;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.rank.on{color:#fff;border-color:#fff;transform:scale(1.15)}
 .arw{display:block;width:16px;height:16px;line-height:16px;text-align:center;color:#fff;font-size:11px;text-shadow:0 0 2px #9a3412,0 0 2px #9a3412}
 .goal{display:inline-block;white-space:nowrap;background:#f97316;color:#fff;font-size:13px;font-weight:700;padding:2px 8px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 #near ol.routes{list-style:none;padding:0}
 #near ol.routes li{display:flex;gap:8px;padding:8px;border:1px solid var(--line);border-radius:10px;margin:6px 0}
-#near ol.routes li.on{border:2px solid #f97316;background:#fff7ed}
-#near .rk{font-size:20px;font-weight:700;color:#6b7280;line-height:1.2}
+#near ol.routes li.on{border-width:2px;background:#fffaf5}
+#near h3.kh{margin:12px 0 2px;font-size:15px}
+#near .rk{font-size:16px;white-space:nowrap;font-weight:700;color:#6b7280;line-height:1.2}
 #near li.on .rk{color:#f97316}
 #near .steps{display:block;margin:4px 0 2px;font-size:13px;color:#9a3412}
 #near small{display:block}
@@ -82,7 +83,7 @@ tbody tr{cursor:pointer}
 <small>実際の消火栓・防火水槽の位置ではありません。きんこう防災ナビには載せていません。</small></div>
 <header>
   <h1>消火栓・防火水槽の表示イメージ（きんこう防災ナビ）</h1>
-  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 12）</b></p>
+  <p>役場周辺に、架空の消火栓6か所・防火水槽4か所を置いた見本 <b>（見本の版 13）</b></p>
   <p><a href="#fire">▼ 出動メールを貼り付けて、近い水利と距離を出す</a></p>
 </header>
 <div id="mapbox"><div id="map" aria-label="地図"></div><div id="maphint">地図のどこを押しても、そこに火点🔥を置きます</div></div>
@@ -91,7 +92,7 @@ tbody tr{cursor:pointer}
   <label><input type="checkbox" id="f-t" checked><span class="ic t">水</span>防火水槽</label>
 </div>
 <section class="fire" id="fire">
-  <h2>火点から近い消火栓・防火水槽</h2>
+  <h2>火点から近い消火栓・防火水槽（両方の道順）</h2>
   <div class="row">
     <button class="btn pri" id="pick" type="button">地図に火点を置く</button>
     <button class="btn" id="here" type="button">現在地を火点に</button>
@@ -331,24 +332,22 @@ async function setFire(ll){
   fire.bindTooltip(esc(fireName)+'（ずらせます）',{direction:'top',offset:[0,-20]});
   fire.on('dragend',()=>setFire(fire.getLatLng()));
   const near=document.getElementById('near');
-  const vis=DEMO.filter(d=>map.hasLayer(groups[d.kind]));
-  if(!vis.length){near.innerHTML='<p class="note">表示中の水利がありません。上の「消火栓」「防火水槽」に印を付けてください。</p>';return}
-  // 直線で近い8か所を候補にして、道沿いの距離を計算する
-  const cands=vis.map(d=>({d,m:map.distance(ll,[d.lat,d.lng])})).sort((a,b)=>a.m-b.m).slice(0,8);
-
+  // 消火栓（必ず）と防火水槽の両方を、種類ごとに直線で近い所から候補にする（印の表示・非表示に関係なく計算する）
+  const near1=k=>DEMO.filter(d=>d.kind===k).map(d=>({d,m:map.distance(ll,[d.lat,d.lng])})).sort((a,b)=>a.m-b.m);
+  const cands=[...near1('消火栓').slice(0,5),...near1('防火水槽').slice(0,4)];
   near.innerHTML='<p class="note">道沿いの距離を計算しています…</p>';
   fireLines.addLayer(L.marker(ll,{interactive:false,icon:L.divIcon({className:'',html:'<span class="calc">計算中…</span>',iconSize:[0,0],iconAnchor:[-16,8]})}));
   let res,roadOK=true;
   try{res=await roadRoutes(ll,cands)}catch(e){roadOK=false;res=cands.map(c=>({...c,road:null}))}
   if(seq!==fireSeq)return; // 計算中に火点が変わった
-  const val=r=>r.road??Infinity;
-  const list=(roadOK?res.filter(r=>r.road!==null).sort((a,b)=>val(a)-val(b)):res).slice(0,5);
-  shown={ll,list,roadOK,res};
-  drawRoutes(0);
+  const val=r=>r.road??r.m;
+  const byKind=k=>{let a=res.filter(r=>r.d.kind===k);if(roadOK&&a.some(r=>r.road!=null))a=a.filter(r=>r.road!=null);return a.sort((x,y)=>val(x)-val(y)).slice(0,3)};
+  shown={ll,roadOK,res,H:byKind('消火栓'),T:byKind('防火水槽'),selH:0,selT:0};
+  drawRoutes();
 }
-// ---- 道順の表示：選んだ1本だけを太く・矢印つきで、ほかは細い灰色に ----
+// ---- 道順の表示：消火栓（赤）と防火水槽（青）の一番近い所への道順を、同時に太く・矢印つきで ----
 let shown=null;
-const RANKS='①②③④⑤';
+const KIND={'消火栓':{col:'#d92d20',dark:'#7f1d1d',key:'H',sel:'selH',mark:'栓'},'防火水槽':{col:'#1570ef',dark:'#1e3a8a',key:'T',sel:'selT',mark:'水'}};
 function arrowsAlong(pts,every){
   // 道順に沿って、一定の間隔で進む向きの矢印を置く
   const out=[];let acc=every/2;
@@ -360,53 +359,57 @@ function arrowsAlong(pts,every){
   }
   return out;
 }
-function drawRoutes(sel){
-  if(!shown)return;
-  const {ll,list,roadOK,res}=shown;fireLines.clearLayers();
-  const ROUTE='#f97316'; // 選んだ道順の色（消火栓の赤・防火水槽の青と見分けやすい橙）
-  // ほかの候補：細い灰色の線と順位の番号だけ
-  list.forEach((r,i)=>{if(i===sel)return;
-    const pts=r.path?[...r.legFire,...r.path,...r.legSui.slice(1)]:[[ll.lat,ll.lng],[r.d.lat,r.d.lng]];
-    L.polyline(pts,{color:'#6b7280',weight:3,opacity:.45,interactive:false}).addTo(fireLines);
-  });
-  list.forEach((r,i)=>{
-    L.marker([r.d.lat,r.d.lng],{interactive:true,zIndexOffset:500,icon:L.divIcon({className:'',
-      html:`<span class="rank${i===sel?' on':''}">${RANKS[i]}</span>`,iconSize:[24,24],iconAnchor:[-6,30]})})
-      .on('click',()=>{drawRoutes(i)}).addTo(fireLines);
-  });
-  // 選んだ道順
-  const r=list[sel];if(!r)return;
-  let all;
+function routePts(r,ll){return r.path?[...r.legFire,...r.path,...r.legSui.slice(1)]:[[ll.lat,ll.lng],[r.d.lat,r.d.lng]]}
+function drawOne(r,ll,col,dark){
+  const all=routePts(r,ll);
   if(r.path){
-    all=[...r.legFire,...r.path,...r.legSui.slice(1)];
     L.polyline(r.path,{color:'#fff',weight:11,opacity:.95,interactive:false}).addTo(fireLines);
     [r.legFire,r.legSui].forEach(seg=>{
       L.polyline(seg,{color:'#fff',weight:8,opacity:.9,interactive:false}).addTo(fireLines);
-      L.polyline(seg,{color:ROUTE,weight:4,dashArray:'2 7',lineCap:'round',interactive:false}).addTo(fireLines)});
-    L.polyline(r.path,{color:ROUTE,weight:7,interactive:false}).addTo(fireLines);
+      L.polyline(seg,{color:col,weight:4,dashArray:'2 7',lineCap:'round',interactive:false}).addTo(fireLines)});
+    L.polyline(r.path,{color:col,weight:7,interactive:false}).addTo(fireLines);
   }else{
-    all=[[ll.lat,ll.lng],[r.d.lat,r.d.lng]];
     L.polyline(all,{color:'#fff',weight:8,opacity:.9,interactive:false}).addTo(fireLines);
-    L.polyline(all,{color:ROUTE,weight:4,dashArray:'2 7',interactive:false}).addTo(fireLines);
+    L.polyline(all,{color:col,weight:4,dashArray:'2 7',interactive:false}).addTo(fireLines);
   }
   // 矢印は水利から火点へ（水が流れる向き・ホースを延ばす向き）
   arrowsAlong([...all].reverse(),45).forEach(a=>L.marker(a.ll,{interactive:false,icon:L.divIcon({className:'',
-    html:`<span class="arw" style="transform:rotate(${a.ang}deg)">➤</span>`,iconSize:[16,16],iconAnchor:[8,8]})}).addTo(fireLines));
-  // 行き先に距離の札
+    html:`<span class="arw" style="transform:rotate(${a.ang}deg);text-shadow:0 0 2px ${dark},0 0 2px ${dark}">➤</span>`,iconSize:[16,16],iconAnchor:[8,8]})}).addTo(fireLines));
   L.marker([r.d.lat,r.d.lng],{interactive:false,zIndexOffset:600,icon:L.divIcon({className:'',
-    html:`<span class="goal">${RANKS[sel]} ${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}</span>`,iconSize:[0,0],iconAnchor:[-14,-12]})}).addTo(fireLines);
-  // 道順が画面からはみ出すときだけ、地図を合わせる
-  const rb=L.latLngBounds(all);if(!map.getBounds().pad(-0.05).contains(rb))map.fitBounds(rb,{padding:[50,50],maxZoom:18});
+    html:`<span class="goal" style="background:${col}">${r.d.kind} ${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}</span>`,iconSize:[0,0],iconAnchor:[-14,-12]})}).addTo(fireLines);
+  return all;
+}
+function drawRoutes(){
+  if(!shown)return;
+  const {ll,roadOK,res}=shown;fireLines.clearLayers();
+  // ほかの候補は細い灰色の線と番号
+  ['消火栓','防火水槽'].forEach(k=>{const K=KIND[k],arr=shown[K.key];
+    arr.forEach((r,i)=>{
+      if(i!==shown[K.sel])L.polyline(routePts(r,ll),{color:'#6b7280',weight:3,opacity:.4,interactive:false}).addTo(fireLines);
+      L.marker([r.d.lat,r.d.lng],{zIndexOffset:500,icon:L.divIcon({className:'',
+        html:`<span class="rank${i===shown[K.sel]?' on':''}" style="${i===shown[K.sel]?'background:'+K.col:''}">${K.mark}${i+1}</span>`,iconSize:[30,24],iconAnchor:[-6,30]})})
+        .on('click',()=>{shown[K.sel]=i;drawRoutes()}).addTo(fireLines);
+    })});
+  // 選んだ道順：防火水槽を先に、消火栓をその上に描く（重なる道では消火栓の赤が見える）
+  const pts=[];
+  const t=shown.T[shown.selT],h=shown.H[shown.selH];
+  if(t)pts.push(...drawOne(t,ll,KIND['防火水槽'].col,KIND['防火水槽'].dark));
+  if(h)pts.push(...drawOne(h,ll,KIND['消火栓'].col,KIND['消火栓'].dark));
+  if(pts.length){const rb=L.latLngBounds(pts);if(!map.getBounds().pad(-0.05).contains(rb))map.fitBounds(rb,{padding:[50,50],maxZoom:18})}
   // 一覧
   const near=document.getElementById('near');
-  const li=(r,i)=>{const d=r.d,h=d.kind==='消火栓',L0=r.road??r.m;
-    const steps=r.road!=null?`<span class="steps">${h?'消火栓':'防火水槽'}から <b>${fmt(r.offSui)}</b> で道へ → 道を <b>${fmt(r.onRoad)}</b> → <b>${fmt(r.offFire)}</b> で🔥火点</span>`:'';
-    return `<li data-i="${i}" class="${i===sel?'on':''}"><span class="rk">${RANKS[i]}</span><div><b>${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}</b>　<span class="ic ${h?'h':'t'}" style="width:18px;height:18px;font-size:10px">${h?'栓':'水'}</span> ${esc(d.name)}　${h?'口径'+d.dia+'mm':'容量'+d.cap+'㎥'}
-      ${i===sel?steps:''}<small class="note">${r.road!=null?`直線では ${fmt(r.m)}・`:''}ホース（1本20m）約${Math.ceil(L0/20)}本分</small></div></li>`};
-  near.innerHTML='<p class="note">番号を押すと、その水利から火点までの道順を地図に出します（橙の線。矢印は水利→火点の向き）。</p>'+(list.length?`<ol class="routes">${list.map(li).join('')}</ol>`:'')+(roadOK
+  const li=(r,i,k)=>{const K=KIND[k],d=r.d,h=k==='消火栓',L0=r.road??r.m,on=i===shown[K.sel];
+    const steps=r.road!=null?`<span class="steps">${k}から <b>${fmt(r.offSui)}</b> で道へ → 道を <b>${fmt(r.onRoad)}</b> → <b>${fmt(r.offFire)}</b> で🔥火点</span>`:'';
+    return `<li data-k="${k}" data-i="${i}" class="${on?'on':''}" style="${on?'border-color:'+K.col:''}"><span class="rk" style="${on?'color:'+K.col:''}">${K.mark}${i+1}</span><div><b>${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}</b>　${esc(d.name)}　${h?'口径'+d.dia+'mm':'容量'+d.cap+'㎥'}
+      ${on?steps:''}<small class="note">${r.road!=null?`直線では ${fmt(r.m)}・`:''}ホース（1本20m）約${Math.ceil(L0/20)}本分</small></div></li>`};
+  const sec=k=>{const arr=shown[KIND[k].key];
+    return `<h3 class="kh" style="color:${KIND[k].col}">${k==='消火栓'?'● 消火栓（必ず確認）':'■ 防火水槽'}</h3>`+
+      (arr.length?`<ol class="routes">${arr.map((r,i)=>li(r,i,k)).join('')}</ol>`:`<p class="note">近くに${k}がありません。</p>`)};
+  near.innerHTML='<p class="note">一番近い<b>消火栓（赤）</b>と<b>防火水槽（青）</b>から火点までの道順を、同時に表示しています。矢印は水利→火点の向き。別の水利を押すと、その種類の道順が切り替わります。</p>'
+    +sec('消火栓')+sec('防火水槽')+(roadOK
     ?(farNote(res))+'<p class="note">距離は、国土地理院の道路中心線に沿って計算した<b>道沿いの距離</b>です。火点や水利が道から離れているときは、道までを直線（点線）で足しています。通れない道、私道・農道、建物の間を通す近道などは考えていないので、目安として使ってください。</p>'
     :'<p class="note"><b>道の情報を読み込めなかったため、直線距離</b>を表示しています。実際は道や建物を回るので、ホースはこれより長く必要です。</p>');
-  near.querySelectorAll('li').forEach(el=>el.onclick=()=>{drawRoutes(+el.dataset.i);document.getElementById('mapbox').scrollIntoView({behavior:'smooth',block:'start'})});
+  near.querySelectorAll('li').forEach(el=>el.onclick=()=>{shown[KIND[el.dataset.k].sel]=+el.dataset.i;drawRoutes();document.getElementById('mapbox').scrollIntoView({behavior:'smooth',block:'start'})});
 }
 document.getElementById('clear').onclick=()=>{if(fire)fire.remove();fire=null;shown=null;fireLines.clearLayers();
   document.getElementById('near').innerHTML='<p class="note">火点を置くと、近い順に5か所と、道沿いの距離を表示します。</p>'};
