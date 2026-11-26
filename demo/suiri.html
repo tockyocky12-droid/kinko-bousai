@@ -76,11 +76,6 @@ tbody tr{cursor:pointer}
 .routing .leaflet-tooltip.num{display:none}
 .cno{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;color:#fff;font-size:11px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45);cursor:pointer}
 #mapbox.routing-on #maphint{display:none}
-#swpanel .blk{display:flex;gap:6px}
-#swpanel .blk button{width:auto;height:auto;flex:1;font-size:13.5px;font-weight:700;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.96);box-shadow:0 1px 6px rgba(0,0,0,.3)}
-#swpanel .blk #blkclr{flex:none;font-weight:400}
-#swpanel .blk #blkbtn.on{background:#fde047;border-color:#a16207;color:#422006}
-.blocking{cursor:not-allowed}
 #mapbox.routing-on #maphint.show{display:block}
 .basesel{display:flex;border-radius:8px;overflow:hidden;box-shadow:0 1px 5px rgba(0,0,0,.35);background:#fff}
 .basesel button{font:inherit;font-size:13px;border:0;background:#fff;color:#17212b;padding:7px 10px;cursor:pointer}
@@ -257,7 +252,6 @@ pickBtn.onclick=()=>{document.getElementById('mapbox').scrollIntoView({behavior:
     const moved=Math.hypot(e.clientX-d.x,e.clientY-d.y),dt=Date.now()-d.t;
     if(moved>14||dt>1200)return; // 地図を動かした・長く押しすぎた
     const r=box.getBoundingClientRect(),ll=map.containerPointToLatLng([e.clientX-r.left,e.clientY-r.top]);
-    if(blockMode){blockRoadAt(ll);return}
     fireName='火点';setFire(ll);setPicking(false);
     tapMsg(`押した所に火点を置きました（北緯${ll.lat.toFixed(5)}・東経${ll.lng.toFixed(5)}）`);
   };
@@ -271,10 +265,6 @@ const fmt=m=>m<1000?Math.round(m)+' m':(m/1000).toFixed(2)+' km';
 // 火点の位置は国土地理院の地図データを読むためだけに使い、ほかのサービスには送らない。
 const RD_URL='https://cyberjapandata.gsi.go.jp/xyz/experimental_rdcl/16/{x}/{y}.geojson';
 const RD_Z=16,rdCache=new Map(),graphCache=new Map();
-// 通らない道（区間の両端の位置で覚える）
-const blocked=new Set();let lastG=null,blockMode=false;
-const nk=n=>n.lat.toFixed(6)+','+n.lng.toFixed(6);
-const ek=(a,b)=>[nk(a),nk(b)].sort().join('|');
 const t2x=(lng,z)=>Math.floor((lng+180)/360*2**z);
 const t2y=(lat,z)=>{const r=lat*Math.PI/180;return Math.floor((1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*2**z)};
 async function rdTile(x,y){
@@ -328,7 +318,7 @@ function dijkstra(G,start){
   const pop=()=>{const t=heap[0],l=heap.pop();if(heap.length){heap[0]=l;let i=0;for(;;){const a=2*i+1,b=a+1;let m=i;
     if(a<heap.length&&heap[a][0]<heap[m][0])m=a;if(b<heap.length&&heap[b][0]<heap[m][0])m=b;if(m===i)break;[heap[m],heap[i]]=[heap[i],heap[m]];i=m}}return t};
   while(heap.length){const [d,n]=pop();if(d>(dist.get(n)??Infinity))continue;
-    for(const [m,w] of n.adj){if(n.id>=0&&m.id>=0&&blocked.has(ek(n,m)))continue;const nd=d+w;if(nd<(dist.get(m)??Infinity)){dist.set(m,nd);prev.set(m,n);push([nd,m])}}}
+    for(const [m,w] of n.adj){const nd=d+w;if(nd<(dist.get(m)??Infinity)){dist.set(m,nd);prev.set(m,n);push([nd,m])}}}
   return {dist,prev};
 }
 // 道の上の点を、網の中に仮の点として足す
@@ -358,7 +348,7 @@ async function roadRoutes(ll,cands){
     await new Promise(r=>setTimeout(r,0)); // 計算の前に、画面の書き換え（火点の表示）を先に済ませる
     G=buildGraph(fcs);graphCache.set(gk,G);if(graphCache.size>4)graphCache.delete(graphCache.keys().next().value);
   }
-  G.virt=new Map();lastG=G;
+  G.virt=new Map();
   if(!G.segs.length)throw new Error('道の情報がありません');
   const sf=snap(G,ll);const vf=addVirtual(G,sf);
   const vs=cands.map(c=>{const s=snap(G,L.latLng(c.d.lat,c.d.lng));return {c,s,v:addVirtual(G,s)}});
@@ -474,36 +464,6 @@ for(const b of boxes)if(r.x0<b.x1&&r.x1>b.x0&&r.y0<b.y1&&r.y1>b.y0)n+=10;
   });
 }
 map.on('zoomend',()=>placeLabels());
-// ---- 「この道は通らない」：押した所に一番近い道を、交差点から交差点まで通らない区間にする ----
-const blockLayer=L.layerGroup().addTo(map);
-function realDeg(n){return n.adj.filter(([m])=>m.id>=0).length}
-function wayFrom(G,a,b){
-  // a–b の区間から、両側へ交差点（分かれ道）か行き止まりまで延ばす
-  const edges=[[a,b]];
-  for(const [s0,p0] of [[a,b],[b,a]]){let cur=s0,prev=p0,k=0;
-    while(realDeg(cur)===2&&k++<300){const nx=cur.adj.map(([m])=>m).find(m=>m.id>=0&&m!==prev);if(!nx)break;edges.push([cur,nx]);prev=cur;cur=nx}}
-  return edges;
-}
-function blockRoadAt(ll){
-  if(!lastG){tapMsg('先に火点を置いてください');return}
-  const sn=snap(lastG,ll);
-  if(!sn||sn.off>40){tapMsg('押した所の近くに道が見つかりません。道の上を押してください');return}
-  const edges=wayFrom(lastG,sn.a,sn.b);
-  const keys=edges.map(([a,b])=>ek(a,b)),isOn=keys.every(k=>blocked.has(k));
-  keys.forEach(k=>isOn?blocked.delete(k):blocked.add(k)); // もう一度押すと、通れるに戻す
-  drawBlocked();tapMsg(isOn?'その道を通れるに戻しました':'その道を「通らない」にしました。道順を計算し直します');
-  if(fire)setFire(fire.getLatLng());
-}
-function drawBlocked(){
-  blockLayer.clearLayers();
-  blocked.forEach(k=>{const [p,q]=k.split('|').map(t=>t.split(',').map(Number));
-    L.polyline([p,q],{color:'#111827',weight:12,opacity:.55,interactive:false,lineCap:'butt'}).addTo(blockLayer);
-    L.polyline([p,q],{color:'#fde047',weight:5,dashArray:'6 6',interactive:false,lineCap:'butt'}).addTo(blockLayer)});
-  document.getElementById('blkclr')&&(document.getElementById('blkclr').disabled=!blocked.size);
-}
-function setBlockMode(on){blockMode=on;const b=document.getElementById('blkbtn');if(b){b.classList.toggle('on',on);
-  b.textContent=on?'✓ 通らない道を押してください（終わったらここを押す）':'🚧 この道は通らない'}
-  map.getContainer().classList.toggle('blocking',on)}
 // 地図の下の切り替えの帯：「◀ 第1候補 ▶」で、消火栓・防火水槽をそれぞれ切り替える
 function drawSwitch(){
   const pn=document.getElementById('swpanel');
@@ -513,10 +473,7 @@ function drawSwitch(){
     if(!r)return `<div class="sw" style="border-left-color:${K.col}"><span class="t">${k}：近くにありません</span></div>`;
     return `<div class="sw" style="border-left-color:${K.col}"><button data-k="${k}" data-d="-1" aria-label="${k}の前の候補" ${i===0?'disabled':''}>◀</button>
       <span class="t"><b style="color:${K.col}">${k} 第${i+1}候補</b>（${arr.length}か所中）<br>${r.road!=null?'道沿い '+fmt(r.road):'直線 '+fmt(r.m)}・${esc(r.d.name.replace('（架空）',''))}</span>
-      <button data-k="${k}" data-d="1" aria-label="${k}の次の候補" ${i>=arr.length-1?'disabled':''}>▶</button></div>`}).join('')
-    +`<div class="blk"><button id="blkbtn" class="${blockMode?'on':''}">${blockMode?'✓ 通らない道を押してください（終わったらここを押す）':'🚧 この道は通らない'}</button><button id="blkclr" ${blocked.size?'':'disabled'}>すべて戻す</button></div>`;
-  document.getElementById('blkbtn').onclick=()=>setBlockMode(!blockMode);
-  document.getElementById('blkclr').onclick=()=>{blocked.clear();drawBlocked();setBlockMode(false);if(fire)setFire(fire.getLatLng());tapMsg('通らない道をすべて戻しました')};
+      <button data-k="${k}" data-d="1" aria-label="${k}の次の候補" ${i>=arr.length-1?'disabled':''}>▶</button></div>`}).join(''); 
   pn.querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>{const K=KIND[b.dataset.k];
     shown[K.sel]=Math.max(0,Math.min(shown[K.key].length-1,shown[K.sel]+(+b.dataset.d)));drawRoutes()});
 }
@@ -577,7 +534,7 @@ function drawRoutes(){
   const sec=k=>{const arr=shown[KIND[k].key];
     return `<h3 class="kh" style="color:${KIND[k].col}">${k==='消火栓'?'● 消火栓（必ず確認）':'■ 防火水槽'}</h3>`+
       (arr.length?`<ol class="routes">${arr.map((r,i)=>li(r,i,k)).join('')}</ol>`:`<p class="note">近くに${k}がありません。</p>`)};
-  near.innerHTML='<p class="note">一番近い<b>消火栓（赤）</b>と<b>防火水槽（青）</b>から火点までの道順を、同時に表示しています。矢印は水利→火点の向き。地図の下の「◀ ▶」か、下の一覧・地図の小さな番号を押すと、第2候補以降に切り替わります。交通の多い道路などを避けたいときは「🚧 この道は通らない」を押してから、その道を押すと、避けた道順を計算し直します（もう一度押すと戻ります）。</p>'
+  near.innerHTML='<p class="note">一番近い<b>消火栓（赤）</b>と<b>防火水槽（青）</b>から火点までの道順を、同時に表示しています。矢印は水利→火点の向き。地図の下の「◀ ▶」か、下の一覧・地図の小さな番号を押すと、第2候補以降に切り替わります。交通の多い道路の横断を避けたいときなどは、次の候補に切り替えてください。</p>'
     +sec('消火栓')+sec('防火水槽')+(roadOK
     ?(farNote(res))+'<p class="note">距離は、国土地理院の道路中心線に沿って計算した<b>道沿いの距離</b>です。火点や水利が道から離れているときは、道までを直線（点線）で足しています。通れない道、私道・農道、建物の間を通す近道などは考えていないので、目安として使ってください。</p>'
     :'<p class="note"><b>道の情報を読み込めなかったため、直線距離</b>を表示しています。実際は道や建物を回るので、ホースはこれより長く必要です。</p>');
